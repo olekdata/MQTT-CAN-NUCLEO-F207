@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>STM32 F207 httpd server test page</title>
+    <meta charset="utf-8" />
+ </head>
+ <body>
+   <p>This allows you to control the LEDs: LED1 and LED2. You have to click on "Send" button to change the LEDs</p>
+
+	<form method="get" action="/leds.cgi">
+    <!--#tag1-->LED1 (red)
+    <br>
+    <!--#tag2-->LED2 (blue)
+    <br>
+    <input value="Send" type="submit">
+ </form>
+ </body>
+ </html>    
