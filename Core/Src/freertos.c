@@ -27,6 +27,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+#include "stdio.h"
+
 // including httpd.h [- HTTPd #1 -]
 #include "lwip/apps/httpd.h"
 
@@ -35,16 +37,28 @@
 // we include this library to be able to use boolean variables for SSI
 #include <Stdbool.h>
 
-bool LD1ON = false; // this variable will indicate if the LD3 LED on the board is ON or not
-bool LD2ON = false; // this variable will indicate if our LD2 LED on the board is ON or not
-
 #include "mqtt.h"
+
+
+#include "ssd1306.h"
 
 
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+
+
+bool LD1ON = false; // this variable will indicate if the LD3 LED on the board is ON or not
+bool LD2ON = false; // this variable will indicate if our LD2 LED on the board is ON or not
+
+#define MAX_LINIA 7
+#define LEN_LINIA 40
+
+
+char linia[MAX_LINIA][LEN_LINIA];
+int top_linia = 0;
+
 
 /* USER CODE END PTD */
 
@@ -64,63 +78,39 @@ tCGI theCGItable[1];
 u16_t mySSIHandler(int iIndex, char *pcInsert, int iInsertLen);
 
 // [* SSI #2 *]
-#define numSSItags 2
+#define numSSItags 9
 
 // [* SSI #3 *]
-char const *theSSItags[numSSItags] = { "tag1", "tag2" };
+char const *theSSItags[numSSItags] = { "tag1", "tag2", "w1", "w2","w3","w4","w5","w6","w7"};
 
 // the actual function for handling CGI [= CGI #5 =]
 const char* LedCGIhandler(int iIndex, int iNumParams, char *pcParam[],
 char *pcValue[]) {
-
 	uint32_t i = 0;
-
 	if (iIndex == 0) {
-
 		//turning the LED lights off
 		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
-
 		// we put this variable to false to indicate that the LD2 LED on the board is not ON
 		LD2ON = false;
-
 		HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_RESET);
-
 		// we put this variable to false to indicate that the LD* LED on the board is not ON
 		LD1ON = false;
-
 	}
-
 	for (i = 0; i < iNumParams; i++) {
-
-		if (strcmp(pcParam[i], "led") == 0)
-
-		{
-
+		if (strcmp(pcParam[i], "led") == 0) {
 			if (strcmp(pcValue[i], "1") == 0) {
-
 				HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_SET);
-
 				// LD3 LED (red) on the board is ON!
 				LD1ON = true;
-
-			}
-
-			else if (strcmp(pcValue[i], "2") == 0) {
-
+			} else if (strcmp(pcValue[i], "2") == 0) {
 				HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
-
 				// LD2 LED (blue) on the board is ON!
 				LD2ON = true;
-
 			}
-
 		}
-
 	}
-
 	// the extension .shtml for SSI to work
 	return "/index.shtml";
-
 } // END [= CGI #5 =]
 
 // function to initialize CGI [= CGI #6 =]
@@ -133,56 +123,34 @@ void myCGIinit(void) {
 
 // the actual function for SSI [* SSI #4 *]
 u16_t mySSIHandler(int iIndex, char *pcInsert, int iInsertLen) {
-
 	if (iIndex == 0) {
-
 		if (LD1ON == false) {
-
 			char myStr1[] = "<input value=\"1\" name=\"led\" type=\"checkbox\">";
-
 			strcpy(pcInsert, myStr1);
-
 			return strlen(myStr1);
-		}
-
-		else if (LD1ON == true) {
-
+		} else if (LD1ON == true) {
 			// since the LD3 red LED on the board is ON we make its checkbox checked!
-			char myStr1[] =
-			"<input value=\"1\" name=\"led\" type=\"checkbox\" checked>";
+			char myStr1[] = "<input value=\"1\" name=\"led\" type=\"checkbox\" checked>";
 			strcpy(pcInsert, myStr1);
-
 			return strlen(myStr1);
-
 		}
-
-	}
-
-	else if (iIndex == 1)
-
-	{
+	} else if (iIndex == 1) {
 		if (LD2ON == false) {
 			char myStr2[] = "<input value=\"2\" name=\"led\" type=\"checkbox\">";
 			strcpy(pcInsert, myStr2);
-
 			return strlen(myStr2);
-		}
-
-		else if (LD2ON == true) {
-
+		} else if (LD2ON == true) {
 			// since the LD2 blue LED on the board is ON we make its checkbox checked!
-			char myStr2[] =
-			"<input value=\"2\" name=\"led\" type=\"checkbox\" checked>";
+			char myStr2[] =  "<input value=\"2\" name=\"led\" type=\"checkbox\" checked>";
 			strcpy(pcInsert, myStr2);
-
 			return strlen(myStr2);
-
 		}
-
+	} else if (iIndex <10 ) {
+		uint8_t i = ILinia(iIndex - 2);
+		strcpy(pcInsert, linia[i]);
+		return strlen(linia[i]);
 	}
-
 	return 0;
-
 }
 
 // function to initialize SSI [* SSI #5 *]
@@ -199,47 +167,33 @@ static void mqtt_sub_request_cb(void *arg, err_t result)
   /* Just print the result code here for simplicity,
      normal behaviour would be to take some action if subscribe fails like
      notifying user, retry subscribe or disconnect from server */
-//  printf("Subscribe result: %d\n", result);
+  char s[30];
+  sprintf(s, "Sub res: %d", result);
+  printLCD(s);
 }
 
-static int inpub_id;
 static void mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t tot_len)
 {
-//  printf("Incoming publish at topic %s with total length %u\n", topic, (unsigned int)tot_len);
-
-  /* Decode topic string into a user defined reference */
-  if(strcmp(topic, "print_payload") == 0) {
-    inpub_id = 0;
-  } else if(topic[0] == 'A') {
-    /* All topics starting with 'A' might be handled at the same way */
-    inpub_id = 1;
-  } else {
-    /* For all other topics */
-    inpub_id = 2;
-  }
+  char s[30];
+  sprintf(s, "in: %s %u", topic, (unsigned int)tot_len);
+  printLCD(s);
 }
 
 static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t flags)
 {
-//  printf("Incoming publish payload with length %d, flags %u\n", len, (unsigned int)flags);
+
+  char s1[30];
+  char s2[30];
+  strncpy(s1, data, len);//  sprintf(s,"data: %s", (const char *)data);
+  s1[len] = '\0';
+  sprintf(s2,"data: %s", s1);
+  printLCD(s2);
 
   if(flags & MQTT_DATA_FLAG_LAST) {
     /* Last fragment of payload received (or whole part if payload fits receive buffer
        See MQTT_VAR_HEADER_BUFFER_LEN)  */
 
     /* Call function or do action depending on reference, in this case inpub_id */
-    if(inpub_id == 0) {
-      /* Don't trust the publisher, check zero termination */
-      if(data[len-1] == 0) {
-//        printf("mqtt_incoming_data_cb: %s\n", (const char *)data);
-      }
-    } else if(inpub_id == 1) {
-      /* Call an 'A' function... */
-    } else {
-//      printf("mqtt_incoming_data_cb: Ignoring payload...\n");
-    }
-  } else {
-    /* Handle fragmented payload, store in buffer, write to file or whatever */
   }
 }
 
@@ -255,10 +209,12 @@ static void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection
     mqtt_set_inpub_callback(client, mqtt_incoming_publish_cb, mqtt_incoming_data_cb, arg);
 
     /* Subscribe to a topic named "subtopic" with QoS level 1, call mqtt_sub_request_cb with result */
-    err = mqtt_subscribe(client, "subtopic", 1, mqtt_sub_request_cb, arg);
+    err = mqtt_subscribe(client, "DataSoft/stm32/#", 1, mqtt_sub_request_cb, arg);
 
     if(err != ERR_OK) {
-//      printf("mqtt_subscribe return: %d\n", err);
+    	char s[30];
+		sprintf(s, "m_sub ret: %d", err);
+    	printLCD(s);
     }
   } else {
 //    printf("mqtt_connection_cb: Disconnected, reason: %d\n", status);
@@ -295,11 +251,13 @@ void example_do_connect(mqtt_client_t *client, const char *topic)
 
   /* For now just print the result code if something goes wrong */
   if(err != ERR_OK) {
-//    LCD_UsrLog("mqtt_connect return %d\n", err);
-  }
-	else
-	{
-//		LCD_UsrLog("Connected");
+	  char s[30];
+      sprintf(s, "m_con ret %d", err);
+	  printLCD(s);
+  } else {
+	  char s[30];
+	  sprintf(s, "Connected");
+	  printLCD(s);
 	}
 }
 
@@ -308,7 +266,9 @@ void example_do_connect(mqtt_client_t *client, const char *topic)
 static void mqtt_pub_request_cb(void *arg, err_t result)
 {
   if(result != ERR_OK) {
-//    printf("Publish result: %d\n", result);
+	  char s[30];
+	  sprintf(s, "Publish result: %d\n", result);
+	  printLCD(s);
   }
 }
 
@@ -321,9 +281,29 @@ void example_publish(mqtt_client_t *client, void *arg)
   u8_t retain = 0; /* No don't retain such crappy payload... */
   err = mqtt_publish(client, "DataSoft/stm32", pub_payload, strlen(pub_payload), qos, retain, mqtt_pub_request_cb, arg);
   if(err != ERR_OK) {
-//    printf("Publish err: %d\n", err);
+	char s[20];
+    sprintf(s, "Publish err: %d\n", err);
+    printLCD(s);
   }
 }
+
+
+void my_publish(mqtt_client_t *client, const char *t, const char *m)
+{
+  err_t err;
+  u8_t qos = 2; /* 0 1 or 2, see MQTT specification */
+  u8_t retain = 0; /* No don't retain such crappy payload... */
+  char topic[30];
+  sprintf(topic, "DataSoft/stm32/%s", t);
+
+  err = mqtt_publish(client, topic, m, strlen(m), qos, retain, mqtt_pub_request_cb, 0);
+  if(err != ERR_OK) {
+	char s[20];
+    sprintf(s, "Publish err: %d\n", err);
+    printLCD(s);
+  }
+}
+
 
 
 /* USER CODE END PD */
@@ -338,13 +318,32 @@ void example_publish(mqtt_client_t *client, void *arg)
 
 /* USER CODE END Variables */
 osThreadId defaultTaskHandle;
+osThreadId myTaskButtonHandle;
+osThreadId myTaskLCDHandle;
+osMessageQId myQueue01Handle;
+osSemaphoreId myBinarySemButtonHandle;
+osSemaphoreId myBinarySemLCDHandle;
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
 
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+	if (GPIO_Pin == USER_Btn_Pin) {
+
+		osSemaphoreRelease(myBinarySemButtonHandle);
+
+	}
+
+}
+
+
+
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void const * argument);
+void StartTaskButton(void const * argument);
+void StartTaskLCD(void const * argument);
 
 extern void MX_LWIP_Init(void);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
@@ -379,6 +378,15 @@ void MX_FREERTOS_Init(void) {
   /* add mutexes, ... */
   /* USER CODE END RTOS_MUTEX */
 
+  /* Create the semaphores(s) */
+  /* definition and creation of myBinarySemButton */
+  osSemaphoreDef(myBinarySemButton);
+  myBinarySemButtonHandle = osSemaphoreCreate(osSemaphore(myBinarySemButton), 1);
+
+  /* definition and creation of myBinarySemLCD */
+  osSemaphoreDef(myBinarySemLCD);
+  myBinarySemLCDHandle = osSemaphoreCreate(osSemaphore(myBinarySemLCD), 1);
+
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
@@ -386,6 +394,11 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
   /* USER CODE END RTOS_TIMERS */
+
+  /* Create the queue(s) */
+  /* definition and creation of myQueue01 */
+  osMessageQDef(myQueue01, 16, 32);
+  myQueue01Handle = osMessageCreate(osMessageQ(myQueue01), NULL);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
@@ -395,6 +408,14 @@ void MX_FREERTOS_Init(void) {
   /* definition and creation of defaultTask */
   osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 512);
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
+
+  /* definition and creation of myTaskButton */
+  osThreadDef(myTaskButton, StartTaskButton, osPriorityIdle, 0, 512);
+  myTaskButtonHandle = osThreadCreate(osThread(myTaskButton), NULL);
+
+  /* definition and creation of myTaskLCD */
+  osThreadDef(myTaskLCD, StartTaskLCD, osPriorityIdle, 0, 512);
+  myTaskLCDHandle = osThreadCreate(osThread(myTaskLCD), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -426,17 +447,88 @@ void StartDefaultTask(void const * argument)
   mySSIinit();
   example_do_connect(&mqtt_client, 'DataSoft/stm32');
 
+  ssd1306_Init();
+  printLCD("Init");
+
   for(;;)
   {
 	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-	  example_publish(&mqtt_client, 0);
+//	  example_publish(&mqtt_client, 0);
+//	  printf("Test \n");
 	  osDelay(1000);
   }
   /* USER CODE END StartDefaultTask */
 }
 
+/* USER CODE BEGIN Header_StartTaskButton */
+/**
+* @brief Function implementing the myTaskButton thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartTaskButton */
+void StartTaskButton(void const * argument)
+{
+  /* USER CODE BEGIN StartTaskButton */
+  /* Infinite loop */
+  for(;;)
+  {
+	osSemaphoreWait(myBinarySemButtonHandle, osWaitForever);
+
+	LD1ON = !LD1ON;
+
+
+	HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, LD1ON);
+	printLCD("LD2");
+
+  }
+  /* USER CODE END StartTaskButton */
+}
+
+/* USER CODE BEGIN Header_StartTaskLCD */
+/**
+* @brief Function implementing the myTaskLCD thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartTaskLCD */
+void StartTaskLCD(void const * argument)
+{
+  /* USER CODE BEGIN StartTaskLCD */
+  /* Infinite loop */
+  for(;;) {
+	  osSemaphoreWait(myBinarySemLCDHandle, osWaitForever);
+
+	  for (uint8_t i=0; i<MAX_LINIA ; i++){
+		  ssd1306_SetCursor(0, 9*i);
+		  char _s[LEN_LINIA];
+		  strcpy(_s, linia[ILinia(i)]);
+		  uint8_t l= strlen(_s);
+		  memset(&_s[l], ' ', LEN_LINIA-l);
+		  _s[20] = '\0';
+		  ssd1306_WriteString(_s, Font_6x8, White);
+	  }
+	  ssd1306_UpdateScreen();
+  }
+  /* USER CODE END StartTaskLCD */
+}
+
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
+
+int ILinia(int lp)
+{
+	return (top_linia + lp) % MAX_LINIA;
+}
+
+void printLCD(const char *s)
+{
+	strcpy(linia[top_linia], s);
+	top_linia = (top_linia + 1) % MAX_LINIA;
+	osSemaphoreRelease(myBinarySemLCDHandle);
+
+}
+
 
 /* USER CODE END Application */
 

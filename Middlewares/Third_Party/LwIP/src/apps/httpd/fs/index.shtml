@@ -14,5 +14,15 @@
     <br>
     <input value="Send" type="submit">
  </form>
+ <div style="border: solid red 1px">
+    <!--#w1--><br>
+    <!--#w2--><br>
+    <!--#w3--><br>
+    <!--#w4--><br>
+    <!--#w5--><br>
+    <!--#w6--><br>
+    <!--#w7--><br>
+  </div>
+    <button onclick="window.location.href = 'index.shtml'">Odswiez</button>    
  </body>
  </html>    

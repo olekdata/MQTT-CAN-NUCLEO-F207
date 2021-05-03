@@ -21,6 +21,7 @@
 #include "main.h"
 #include "cmsis_os.h"
 #include "can.h"
+#include "i2c.h"
 #include "lwip.h"
 #include "usart.h"
 #include "usb_otg.h"
@@ -28,7 +29,6 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -94,6 +94,7 @@ int main(void)
   MX_USART3_UART_Init();
   MX_USB_OTG_FS_PCD_Init();
   MX_CAN1_Init();
+  MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
