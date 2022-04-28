@@ -53,9 +53,11 @@ void MemManage_Handler(void);
 void BusFault_Handler(void);
 void UsageFault_Handler(void);
 void DebugMon_Handler(void);
+void CAN1_RX0_IRQHandler(void);
+void TIM1_UP_TIM10_IRQHandler(void);
 void EXTI15_10_IRQHandler(void);
-void TIM6_DAC_IRQHandler(void);
 void ETH_IRQHandler(void);
+void OTG_FS_IRQHandler(void);
 /* USER CODE BEGIN EFP */
 
 /* USER CODE END EFP */
@@ -65,5 +67,3 @@ void ETH_IRQHandler(void);
 #endif
 
 #endif /* __STM32F2xx_IT_H */
-
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

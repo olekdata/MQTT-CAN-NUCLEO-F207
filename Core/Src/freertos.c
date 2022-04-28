@@ -28,20 +28,21 @@
 /* USER CODE BEGIN Includes */
 
 #include "stdio.h"
+#include "can.h"
 
 // including httpd.h [- HTTPd #1 -]
 #include "lwip/apps/httpd.h"
 
 // we include String.h for the strcmp() function [= CGI #1 =]
-#include <String.h>
+#include <string.h>
 // we include this library to be able to use boolean variables for SSI
-#include <Stdbool.h>
+#include <stdbool.h>
 
 #include "mqtt.h"
 
 
 #include "ssd1306.h"
-
+#include "netif.h"
 
 /* USER CODE END Includes */
 
@@ -160,7 +161,84 @@ void mySSIinit(void) {
 	numSSItags);
 }
 
+
+// ramka CAN
+
+//CAN_HandleTypeDef hcan;
+
+struct CanData_t {
+	uint8_t to;						// kierunek transiski ; do kogo
+	uint8_t fun;					// funkcja
+	uint8_t	val;					// wartosc (H)
+	uint8_t	valL;					// wartosc (L)
+} CanTxData, CanRxData;
+CAN_TxHeaderTypeDef pCanTxHeader, pCanRxHeader;
+uint32_t TxMailbox;
+CAN_FilterTypeDef Can_FilterConfig;
+uint8_t id_device = 1;								// identyfikator urządzenia 1 - fabryczny
+
+
 mqtt_client_t mqtt_client;
+
+
+void CanConfig() {
+    // Inicjacja magistrali CAN
+      /*Na podstawie kodu z materiału https://www.youtube.com/watch?v=ymD3F0h-ilE&t=924s */
+    pCanTxHeader.DLC = 3; // długość danych TxData/RxData
+    pCanTxHeader.IDE = CAN_ID_STD;
+    pCanTxHeader.RTR = CAN_RTR_DATA;
+    pCanTxHeader.StdId = 0;
+
+/*
+      canfil.FilterBank = 0;
+      canfil.FilterMode = CAN_FILTERMODE_IDMASK;
+      canfil.FilterFIFOAssignment = CAN_RX_FIFO0;
+      canfil.FilterIdHigh = 0;
+      canfil.FilterIdLow = 0;
+      canfil.FilterMaskIdHigh = 0;
+      canfil.FilterMaskIdLow = 0;
+      canfil.FilterScale = CAN_FILTERSCALE_32BIT;
+      canfil.FilterActivation = ENABLE;
+      canfil.SlaveStartFilterBank = 14
+*/
+
+    Can_FilterConfig.FilterFIFOAssignment = CAN_RX_FIFO0;
+    Can_FilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
+    Can_FilterConfig.FilterScale = CAN_FILTERSCALE_16BIT;
+    Can_FilterConfig.FilterActivation=CAN_FILTER_ENABLE;
+    Can_FilterConfig.FilterIdHigh = 0;
+    Can_FilterConfig.FilterIdLow = 0;
+    Can_FilterConfig.FilterMaskIdHigh = 0; 					//0xFFFF;
+    Can_FilterConfig.FilterMaskIdLow = 0; 					//0xFFFF;
+    Can_FilterConfig.SlaveStartFilterBank = 14;
+    Can_FilterConfig.FilterBank = 0;
+
+    HAL_CAN_ConfigFilter(&hcan1, &Can_FilterConfig);
+    HAL_CAN_Start(&hcan1);
+    HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
+}
+
+void Can_RX(){
+    char s[80];
+
+//    HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &pCanRxHeader, &CanRxData);
+
+//    if (pCanRxHeader.ExtId || (pCanRxHeader.StdId != 0x100 + id_device)) {
+//    	return;
+//    }{
+    sprintf(s, "can:%03x(%d) %d,%d,%d   ",pCanRxHeader.StdId, pCanRxHeader.DLC, CanRxData.to, CanRxData.fun, CanRxData.val);
+    //ssd1306_SetCursor(0, 48);
+    //ssd1306_WriteString(s,  Font_7x10, White);
+    printLCD(s);
+
+    if (pCanRxHeader.ExtId == 0x001E8041) {
+    	uint16_t v = CanRxData.to + 256*CanRxData.fun;
+    	char sv[10];
+    	sprintf(sv,"%d",v);
+  	   	mqtt_my_publish(&mqtt_client, "RekWenNaw", sv);
+    }
+}
+
 
 static void mqtt_sub_request_cb(void *arg, err_t result)
 {
@@ -168,7 +246,7 @@ static void mqtt_sub_request_cb(void *arg, err_t result)
      normal behaviour would be to take some action if subscribe fails like
      notifying user, retry subscribe or disconnect from server */
   char s[30];
-  sprintf(s, "Sub res: %d", result);
+  sprintf(s, "Sub result: %d", result);
   printLCD(s);
 }
 
@@ -182,8 +260,8 @@ static void mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t tot_len
 static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t flags)
 {
 
-  char s1[30];
-  char s2[30];
+  char s1[40];
+  char s2[40];
   strncpy(s1, data, len);//  sprintf(s,"data: %s", (const char *)data);
   s1[len] = '\0';
   sprintf(s2,"data: %s", s1);
@@ -220,7 +298,7 @@ static void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection
 //    printf("mqtt_connection_cb: Disconnected, reason: %d\n", status);
 
     /* Its more nice to be connected, so try to reconnect */
-    example_do_connect(client);
+    example_do_connect(client, "DataSoft/stm32");
   }
 }
 
@@ -245,18 +323,18 @@ void example_do_connect(mqtt_client_t *client, const char *topic)
      to establish a connection with the server.
      For now MQTT version 3.1.1 is always used */
   ip_addr_t mqttServerIP;
-  IP4_ADDR(&mqttServerIP, 192, 168, 1, 200);
+  IP4_ADDR(&mqttServerIP, 192, 168, 1, 2);
 //  err = mqtt_client_connect(client, &mqttServerIP, MQTT_PORT, mqtt_connection_cb, 0, &ci);
   err = mqtt_client_connect(client, &mqttServerIP, MQTT_PORT, mqtt_connection_cb, &topic, &ci);
 
   /* For now just print the result code if something goes wrong */
   if(err != ERR_OK) {
 	  char s[30];
-      sprintf(s, "m_con ret %d", err);
+      sprintf(s, "MQTT Con. error %d", err);
 	  printLCD(s);
   } else {
 	  char s[30];
-	  sprintf(s, "Connected");
+	  sprintf(s, "MQTT Connected");
 	  printLCD(s);
 	}
 }
@@ -273,12 +351,13 @@ static void mqtt_pub_request_cb(void *arg, err_t result)
 }
 
 
+/*
 void example_publish(mqtt_client_t *client, void *arg)
 {
   const char *pub_payload= "Test z NUCLEO-F207";
   err_t err;
-  u8_t qos = 2; /* 0 1 or 2, see MQTT specification */
-  u8_t retain = 0; /* No don't retain such crappy payload... */
+  u8_t qos = 0; //* 0 1 or 2, see MQTT specification
+  u8_t retain = 0; // No don't retain such crappy payload...
   err = mqtt_publish(client, "DataSoft/stm32", pub_payload, strlen(pub_payload), qos, retain, mqtt_pub_request_cb, arg);
   if(err != ERR_OK) {
 	char s[20];
@@ -286,13 +365,13 @@ void example_publish(mqtt_client_t *client, void *arg)
     printLCD(s);
   }
 }
+*/
 
-
-void my_publish(mqtt_client_t *client, const char *t, const char *m)
+void mqtt_my_publish(mqtt_client_t *client, const char *t, const char *m)
 {
   err_t err;
-  u8_t qos = 2; /* 0 1 or 2, see MQTT specification */
-  u8_t retain = 0; /* No don't retain such crappy payload... */
+  u8_t qos = 2; // 0 1 or 2, see MQTT specification
+  u8_t retain = 0; // No don't retain such crappy payload...
   char topic[30];
   sprintf(topic, "DataSoft/stm32/%s", t);
 
@@ -320,9 +399,11 @@ void my_publish(mqtt_client_t *client, const char *t, const char *m)
 osThreadId defaultTaskHandle;
 osThreadId myTaskButtonHandle;
 osThreadId myTaskLCDHandle;
+osThreadId myTaskCanHandle;
 osMessageQId myQueue01Handle;
 osSemaphoreId myBinarySemButtonHandle;
 osSemaphoreId myBinarySemLCDHandle;
+osSemaphoreId myBinarySemRXCanHandle;
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -338,14 +419,22 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 }
 
 
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
+{
+    HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &pCanRxHeader, &CanRxData);
+	osSemaphoreRelease(myBinarySemRXCanHandle);
+}
+
 
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void const * argument);
 void StartTaskButton(void const * argument);
 void StartTaskLCD(void const * argument);
+void StartTaskCan(void const * argument);
 
 extern void MX_LWIP_Init(void);
+extern void MX_USB_DEVICE_Init(void);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 /* GetIdleTaskMemory prototype (linked to static allocation support) */
@@ -387,6 +476,10 @@ void MX_FREERTOS_Init(void) {
   osSemaphoreDef(myBinarySemLCD);
   myBinarySemLCDHandle = osSemaphoreCreate(osSemaphore(myBinarySemLCD), 1);
 
+  /* definition and creation of myBinarySemRXCan */
+  osSemaphoreDef(myBinarySemRXCan);
+  myBinarySemRXCanHandle = osSemaphoreCreate(osSemaphore(myBinarySemRXCan), 1);
+
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
@@ -410,12 +503,16 @@ void MX_FREERTOS_Init(void) {
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
   /* definition and creation of myTaskButton */
-  osThreadDef(myTaskButton, StartTaskButton, osPriorityIdle, 0, 512);
+  osThreadDef(myTaskButton, StartTaskButton, osPriorityNormal, 0, 512);
   myTaskButtonHandle = osThreadCreate(osThread(myTaskButton), NULL);
 
   /* definition and creation of myTaskLCD */
-  osThreadDef(myTaskLCD, StartTaskLCD, osPriorityIdle, 0, 512);
+  osThreadDef(myTaskLCD, StartTaskLCD, osPriorityNormal, 0, 512);
   myTaskLCDHandle = osThreadCreate(osThread(myTaskLCD), NULL);
+
+  /* definition and creation of myTaskCan */
+  osThreadDef(myTaskCan, StartTaskCan, osPriorityHigh, 0, 512);
+  myTaskCanHandle = osThreadCreate(osThread(myTaskCan), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -434,8 +531,38 @@ void StartDefaultTask(void const * argument)
 {
   /* init code for LWIP */
   MX_LWIP_Init();
+
+  /* init code for USB_DEVICE */
+  MX_USB_DEVICE_Init();
   /* USER CODE BEGIN StartDefaultTask */
   /* Infinite loop */
+
+
+  //osDelay(2000);
+
+  ssd1306_Init();
+  printLCD("Init");
+
+  extern struct netif gnetif;
+
+   //u32_t  local_IP = netif_ip4_addr(&gnetif);
+
+
+   //u32_t local_IP = lwIPLocalIPAddrGet(&gnetif);
+
+   //u32_t local_IP = ip4_addr_get_u32(gnetif);
+    //u32_t local_IP = netif_ip4_addr((&gnetif);
+
+
+   u32_t local_IP = gnetif.ip_addr.addr;
+
+  char s[50];
+
+  sprintf(s, "IP %d.%d.%d.%d\n\r",(local_IP & 0xff), ((local_IP >> 8) & 0xff), ((local_IP >> 16) & 0xff), (local_IP >> 24));
+
+  printLCD(s);
+
+
 
   // initializing the HTTPd [-HTTPd #2-]
   httpd_init();
@@ -445,16 +572,16 @@ void StartDefaultTask(void const * argument)
 
   // initializing SSI [* SSI #6 *]
   mySSIinit();
-  example_do_connect(&mqtt_client, 'DataSoft/stm32');
 
-  ssd1306_Init();
-  printLCD("Init");
+  printf("Start");
+  example_do_connect(&mqtt_client, "DataSoft/stm32");
+
 
   for(;;)
   {
 	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 //	  example_publish(&mqtt_client, 0);
-//	  printf("Test \n");
+	  printf("Idle");
 	  osDelay(1000);
   }
   /* USER CODE END StartDefaultTask */
@@ -479,7 +606,15 @@ void StartTaskButton(void const * argument)
 
 
 	HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, LD1ON);
-	printLCD("LD2");
+	char s[20];
+	int  i = sprintf(s, "Led2 %d", LD1ON);
+	printLCD(s);
+	mqtt_my_publish(&mqtt_client, "Led2", (char)LD1ON);
+
+	//CDC_Transmit_FS(s,  i);
+
+	//printf("");
+	osDelay(1);
 
   }
   /* USER CODE END StartTaskButton */
@@ -509,8 +644,34 @@ void StartTaskLCD(void const * argument)
 		  ssd1306_WriteString(_s, Font_6x8, White);
 	  }
 	  ssd1306_UpdateScreen();
+      osDelay(1);
+
   }
   /* USER CODE END StartTaskLCD */
+}
+
+/* USER CODE BEGIN Header_StartTaskCan */
+/**
+* @brief Function implementing the myTaskCan thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartTaskCan */
+void StartTaskCan(void const * argument)
+{
+  /* USER CODE BEGIN StartTaskCan */
+  /* Infinite loop */
+
+  CanConfig();
+  for(;;)
+  {
+	osSemaphoreWait(myBinarySemRXCanHandle, osWaitForever);
+   Can_RX();
+   int i = 0;
+   i++;
+
+  }
+  /* USER CODE END StartTaskCan */
 }
 
 /* Private application code --------------------------------------------------*/
@@ -523,13 +684,12 @@ int ILinia(int lp)
 
 void printLCD(const char *s)
 {
+	printf(s);
 	strcpy(linia[top_linia], s);
 	top_linia = (top_linia + 1) % MAX_LINIA;
 	osSemaphoreRelease(myBinarySemLCDHandle);
-
 }
 
 
 /* USER CODE END Application */
 
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

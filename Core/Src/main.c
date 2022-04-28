@@ -15,7 +15,19 @@
   *                        opensource.org/licenses/BSD-3-Clause
   *
   ******************************************************************************
+  *  Kalkulator tme quantum
+  *  http://www.bittiming.can-wiki.info/
+  ******************************************************************************
   */
+
+
+#define LWIP_PLATFORM_DIAG(message) printf(message)
+
+
+#define LWIP_DEBUG                      1
+
+#define LWIP_DBG_TYPES_ON    (LWIP_DBG_ON | LWIP_DBG_TRACE)
+
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
@@ -24,7 +36,7 @@
 #include "i2c.h"
 #include "lwip.h"
 #include "usart.h"
-#include "usb_otg.h"
+#include "usb_device.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -61,6 +73,49 @@ void MX_FREERTOS_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+
+// Zeby otwierał się USB wirtual com
+// https://stackoverflow.com/questions/56490843/what-is-issue-with-stm32-virtual-com-port-i-can-not-open-it
+
+
+//void send_char(char c)
+//{
+//	HAL_UART_Transmit(&huart3, (uint8_t*)&c, 1, 1000);
+//}
+
+
+//int __io_putchar(int c)
+//{
+//	send_char(c);
+//	return c;
+//}
+
+
+
+
+int __io_putchar(int ch)
+{
+	 ITM_SendChar(ch); // do SWV
+	 //CDC_Transmit_FS(ch,  1);
+}
+
+
+
+int _write(int file,char *ptr, int len)
+{
+	int DataIdx;
+	for(DataIdx= 0; DataIdx< len; DataIdx++)
+	{
+   //__io_putchar(*ptr++);
+		ITM_SendChar(*ptr++);
+	}
+//  CDC_Transmit_FS(ptr,  len);
+//  CDC_Transmit_FS("\r",  1);
+	return len;
+}
+
+
+
 /* USER CODE END 0 */
 
 /**
@@ -92,7 +147,6 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART3_UART_Init();
-  MX_USB_OTG_FS_PCD_Init();
   MX_CAN1_Init();
   MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
@@ -101,6 +155,7 @@ int main(void)
 
   /* Call init function for freertos objects (in freertos.c) */
   MX_FREERTOS_Init();
+
   /* Start scheduler */
   osKernelStart();
 
@@ -141,6 +196,7 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+
   /** Initializes the CPU, AHB and APB buses clocks
   */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
@@ -160,9 +216,9 @@ void SystemClock_Config(void)
 
 /* USER CODE END 4 */
 
- /**
+/**
   * @brief  Period elapsed callback in non blocking mode
-  * @note   This function is called  when TIM6 interrupt took place, inside
+  * @note   This function is called  when TIM1 interrupt took place, inside
   * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
   * a global variable "uwTick" used as application time base.
   * @param  htim : TIM handle
@@ -173,7 +229,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   /* USER CODE BEGIN Callback 0 */
 
   /* USER CODE END Callback 0 */
-  if (htim->Instance == TIM6) {
+  if (htim->Instance == TIM1) {
     HAL_IncTick();
   }
   /* USER CODE BEGIN Callback 1 */
@@ -212,5 +268,3 @@ void assert_failed(uint8_t *file, uint32_t line)
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
-
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

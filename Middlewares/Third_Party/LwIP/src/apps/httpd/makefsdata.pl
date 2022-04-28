@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!perl
 use warnings;
 
 # This script creates our output file were we will store all the converted html data to C arrays.

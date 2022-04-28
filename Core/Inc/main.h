@@ -113,6 +113,8 @@ void Error_Handler(void);
 #define LD2_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
+#define HTTPD_USE_CUSTOM_FSDATA 0
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
@@ -120,5 +122,3 @@ void Error_Handler(void);
 #endif
 
 #endif /* __MAIN_H */
-
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
