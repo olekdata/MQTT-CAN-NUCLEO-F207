@@ -60,6 +60,10 @@ bool LD2ON = false; // this variable will indicate if our LD2 LED on the board i
 char linia[MAX_LINIA][LEN_LINIA];
 int top_linia = 0;
 
+mqtt_client_t mqtt_client;
+
+void mqtt_my_publish(mqtt_client_t *client, const char *t, const char *m);
+
 
 /* USER CODE END PTD */
 
@@ -96,6 +100,7 @@ char *pcValue[]) {
 		HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_RESET);
 		// we put this variable to false to indicate that the LD* LED on the board is not ON
 		LD1ON = false;
+		mqtt_my_publish(&mqtt_client, "Led1", (char)LD1ON);
 	}
 	for (i = 0; i < iNumParams; i++) {
 		if (strcmp(pcParam[i], "led") == 0) {
@@ -176,9 +181,6 @@ CAN_TxHeaderTypeDef pCanTxHeader, pCanRxHeader;
 uint32_t TxMailbox;
 CAN_FilterTypeDef Can_FilterConfig;
 uint8_t id_device = 1;								// identyfikator urządzenia 1 - fabryczny
-
-
-mqtt_client_t mqtt_client;
 
 
 void CanConfig() {
@@ -396,14 +398,54 @@ void mqtt_my_publish(mqtt_client_t *client, const char *t, const char *m)
 /* USER CODE BEGIN Variables */
 
 /* USER CODE END Variables */
-osThreadId defaultTaskHandle;
-osThreadId myTaskButtonHandle;
-osThreadId myTaskLCDHandle;
-osThreadId myTaskCanHandle;
-osMessageQId myQueue01Handle;
-osSemaphoreId myBinarySemButtonHandle;
-osSemaphoreId myBinarySemLCDHandle;
-osSemaphoreId myBinarySemRXCanHandle;
+/* Definitions for defaultTask */
+osThreadId_t defaultTaskHandle;
+const osThreadAttr_t defaultTask_attributes = {
+  .name = "defaultTask",
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
+/* Definitions for myTaskButton */
+osThreadId_t myTaskButtonHandle;
+const osThreadAttr_t myTaskButton_attributes = {
+  .name = "myTaskButton",
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityLow,
+};
+/* Definitions for myTaskLCD */
+osThreadId_t myTaskLCDHandle;
+const osThreadAttr_t myTaskLCD_attributes = {
+  .name = "myTaskLCD",
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityLow,
+};
+/* Definitions for myTaskCan */
+osThreadId_t myTaskCanHandle;
+const osThreadAttr_t myTaskCan_attributes = {
+  .name = "myTaskCan",
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityLow,
+};
+/* Definitions for myQueue01 */
+osMessageQueueId_t myQueue01Handle;
+const osMessageQueueAttr_t myQueue01_attributes = {
+  .name = "myQueue01"
+};
+/* Definitions for myBinarySemButton */
+osSemaphoreId_t myBinarySemButtonHandle;
+const osSemaphoreAttr_t myBinarySemButton_attributes = {
+  .name = "myBinarySemButton"
+};
+/* Definitions for myBinarySemLCD */
+osSemaphoreId_t myBinarySemLCDHandle;
+const osSemaphoreAttr_t myBinarySemLCD_attributes = {
+  .name = "myBinarySemLCD"
+};
+/* Definitions for myBinarySemRXCan */
+osSemaphoreId_t myBinarySemRXCanHandle;
+const osSemaphoreAttr_t myBinarySemRXCan_attributes = {
+  .name = "myBinarySemRXCan"
+};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -411,47 +453,28 @@ osSemaphoreId myBinarySemRXCanHandle;
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 	if (GPIO_Pin == USER_Btn_Pin) {
-
 		osSemaphoreRelease(myBinarySemButtonHandle);
-
 	}
-
 }
 
 
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
-    HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &pCanRxHeader, &CanRxData);
+  HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &pCanRxHeader, &CanRxData);
 	osSemaphoreRelease(myBinarySemRXCanHandle);
 }
 
 
 /* USER CODE END FunctionPrototypes */
 
-void StartDefaultTask(void const * argument);
-void StartTaskButton(void const * argument);
-void StartTaskLCD(void const * argument);
-void StartTaskCan(void const * argument);
+void StartDefaultTask(void *argument);
+void StartTaskButton(void *argument);
+void StartTaskLCD(void *argument);
+void StartTaskCan(void *argument);
 
 extern void MX_LWIP_Init(void);
 extern void MX_USB_DEVICE_Init(void);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
-
-/* GetIdleTaskMemory prototype (linked to static allocation support) */
-void vApplicationGetIdleTaskMemory( StaticTask_t **ppxIdleTaskTCBBuffer, StackType_t **ppxIdleTaskStackBuffer, uint32_t *pulIdleTaskStackSize );
-
-/* USER CODE BEGIN GET_IDLE_TASK_MEMORY */
-static StaticTask_t xIdleTaskTCBBuffer;
-static StackType_t xIdleStack[configMINIMAL_STACK_SIZE];
-
-void vApplicationGetIdleTaskMemory( StaticTask_t **ppxIdleTaskTCBBuffer, StackType_t **ppxIdleTaskStackBuffer, uint32_t *pulIdleTaskStackSize )
-{
-  *ppxIdleTaskTCBBuffer = &xIdleTaskTCBBuffer;
-  *ppxIdleTaskStackBuffer = &xIdleStack[0];
-  *pulIdleTaskStackSize = configMINIMAL_STACK_SIZE;
-  /* place for user code */
-}
-/* USER CODE END GET_IDLE_TASK_MEMORY */
 
 /**
   * @brief  FreeRTOS initialization
@@ -468,17 +491,14 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE END RTOS_MUTEX */
 
   /* Create the semaphores(s) */
-  /* definition and creation of myBinarySemButton */
-  osSemaphoreDef(myBinarySemButton);
-  myBinarySemButtonHandle = osSemaphoreCreate(osSemaphore(myBinarySemButton), 1);
+  /* creation of myBinarySemButton */
+  myBinarySemButtonHandle = osSemaphoreNew(1, 1, &myBinarySemButton_attributes);
 
-  /* definition and creation of myBinarySemLCD */
-  osSemaphoreDef(myBinarySemLCD);
-  myBinarySemLCDHandle = osSemaphoreCreate(osSemaphore(myBinarySemLCD), 1);
+  /* creation of myBinarySemLCD */
+  myBinarySemLCDHandle = osSemaphoreNew(1, 1, &myBinarySemLCD_attributes);
 
-  /* definition and creation of myBinarySemRXCan */
-  osSemaphoreDef(myBinarySemRXCan);
-  myBinarySemRXCanHandle = osSemaphoreCreate(osSemaphore(myBinarySemRXCan), 1);
+  /* creation of myBinarySemRXCan */
+  myBinarySemRXCanHandle = osSemaphoreNew(1, 1, &myBinarySemRXCan_attributes);
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
@@ -489,34 +509,33 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE END RTOS_TIMERS */
 
   /* Create the queue(s) */
-  /* definition and creation of myQueue01 */
-  osMessageQDef(myQueue01, 16, 32);
-  myQueue01Handle = osMessageCreate(osMessageQ(myQueue01), NULL);
+  /* creation of myQueue01 */
+  myQueue01Handle = osMessageQueueNew (16, 32, &myQueue01_attributes);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
-  /* definition and creation of defaultTask */
-  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 512);
-  defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
+  /* creation of defaultTask */
+  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
-  /* definition and creation of myTaskButton */
-  osThreadDef(myTaskButton, StartTaskButton, osPriorityNormal, 0, 512);
-  myTaskButtonHandle = osThreadCreate(osThread(myTaskButton), NULL);
+  /* creation of myTaskButton */
+  myTaskButtonHandle = osThreadNew(StartTaskButton, NULL, &myTaskButton_attributes);
 
-  /* definition and creation of myTaskLCD */
-  osThreadDef(myTaskLCD, StartTaskLCD, osPriorityNormal, 0, 512);
-  myTaskLCDHandle = osThreadCreate(osThread(myTaskLCD), NULL);
+  /* creation of myTaskLCD */
+  myTaskLCDHandle = osThreadNew(StartTaskLCD, NULL, &myTaskLCD_attributes);
 
-  /* definition and creation of myTaskCan */
-  osThreadDef(myTaskCan, StartTaskCan, osPriorityHigh, 0, 512);
-  myTaskCanHandle = osThreadCreate(osThread(myTaskCan), NULL);
+  /* creation of myTaskCan */
+  myTaskCanHandle = osThreadNew(StartTaskCan, NULL, &myTaskCan_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
+
+  /* USER CODE BEGIN RTOS_EVENTS */
+  /* add events, ... */
+  /* USER CODE END RTOS_EVENTS */
 
 }
 
@@ -527,7 +546,7 @@ void MX_FREERTOS_Init(void) {
   * @retval None
   */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void const * argument)
+void StartDefaultTask(void *argument)
 {
   /* init code for LWIP */
   MX_LWIP_Init();
@@ -594,13 +613,15 @@ void StartDefaultTask(void const * argument)
 * @retval None
 */
 /* USER CODE END Header_StartTaskButton */
-void StartTaskButton(void const * argument)
+void StartTaskButton(void *argument)
 {
   /* USER CODE BEGIN StartTaskButton */
   /* Infinite loop */
   for(;;)
   {
-	osSemaphoreWait(myBinarySemButtonHandle, osWaitForever);
+	//osSemaphoreWait(myBinarySemButtonHandle, osWaitForever);
+	osSemaphoreAcquire(myBinarySemButtonHandle, osWaitForever);
+
 
 	LD1ON = !LD1ON;
 
@@ -614,7 +635,6 @@ void StartTaskButton(void const * argument)
 	//CDC_Transmit_FS(s,  i);
 
 	//printf("");
-	osDelay(1);
 
   }
   /* USER CODE END StartTaskButton */
@@ -627,12 +647,13 @@ void StartTaskButton(void const * argument)
 * @retval None
 */
 /* USER CODE END Header_StartTaskLCD */
-void StartTaskLCD(void const * argument)
+void StartTaskLCD(void *argument)
 {
   /* USER CODE BEGIN StartTaskLCD */
   /* Infinite loop */
   for(;;) {
-	  osSemaphoreWait(myBinarySemLCDHandle, osWaitForever);
+	  //osSemaphoreWait(myBinarySemLCDHandle, osWaitForever);
+	  osSemaphoreAcquire(myBinarySemLCDHandle, osWaitForever);
 
 	  for (uint8_t i=0; i<MAX_LINIA ; i++){
 		  ssd1306_SetCursor(0, 9*i);
@@ -644,7 +665,6 @@ void StartTaskLCD(void const * argument)
 		  ssd1306_WriteString(_s, Font_6x8, White);
 	  }
 	  ssd1306_UpdateScreen();
-      osDelay(1);
 
   }
   /* USER CODE END StartTaskLCD */
@@ -657,7 +677,7 @@ void StartTaskLCD(void const * argument)
 * @retval None
 */
 /* USER CODE END Header_StartTaskCan */
-void StartTaskCan(void const * argument)
+void StartTaskCan(void *argument)
 {
   /* USER CODE BEGIN StartTaskCan */
   /* Infinite loop */
@@ -665,11 +685,10 @@ void StartTaskCan(void const * argument)
   CanConfig();
   for(;;)
   {
-	osSemaphoreWait(myBinarySemRXCanHandle, osWaitForever);
-   Can_RX();
-   int i = 0;
-   i++;
-
+	//osSemaphoreWait(myBinarySemRXCanHandle, osWaitForever);
+	osSemaphoreAcquire(myBinarySemRXCanHandle, osWaitForever);
+	Can_RX();
+     //osDelay(1000);
   }
   /* USER CODE END StartTaskCan */
 }

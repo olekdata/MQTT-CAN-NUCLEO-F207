@@ -91,7 +91,7 @@ void MX_FREERTOS_Init(void);
 //}
 
 
-
+/*
 
 int __io_putchar(int ch)
 {
@@ -114,7 +114,7 @@ int _write(int file,char *ptr, int len)
 	return len;
 }
 
-
+*/
 
 /* USER CODE END 0 */
 
@@ -153,7 +153,8 @@ int main(void)
 
   /* USER CODE END 2 */
 
-  /* Call init function for freertos objects (in freertos.c) */
+  /* Init scheduler */
+  osKernelInitialize();  /* Call init function for freertos objects (in freertos.c) */
   MX_FREERTOS_Init();
 
   /* Start scheduler */
