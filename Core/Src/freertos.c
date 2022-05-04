@@ -29,6 +29,7 @@
 
 #include "stdio.h"
 #include "can.h"
+#include "iwdg.h"
 
 // including httpd.h [- HTTPd #1 -]
 #include "lwip/apps/httpd.h"
@@ -53,12 +54,14 @@
 bool LD1ON = false; // this variable will indicate if the LD3 LED on the board is ON or not
 bool LD2ON = false; // this variable will indicate if our LD2 LED on the board is ON or not
 
-#define MAX_LINIA 7
-#define LEN_LINIA 40
+#define LOG_MAX 6
+#define LOG_LEN 40
 
+char log_items[LOG_MAX][LOG_LEN];
+int log_item = 0;
 
-char linia[MAX_LINIA][LEN_LINIA];
-int top_linia = 0;
+char stime[10];
+
 
 mqtt_client_t mqtt_client;
 
@@ -100,7 +103,7 @@ char *pcValue[]) {
 		HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_RESET);
 		// we put this variable to false to indicate that the LD* LED on the board is not ON
 		LD1ON = false;
-		mqtt_my_publish(&mqtt_client, "Led1", (char)LD1ON);
+		//mqtt_my_publish(&mqtt_client, "Led1", (char)LD1ON);
 	}
 	for (i = 0; i < iNumParams; i++) {
 		if (strcmp(pcParam[i], "led") == 0) {
@@ -153,8 +156,8 @@ u16_t mySSIHandler(int iIndex, char *pcInsert, int iInsertLen) {
 		}
 	} else if (iIndex <10 ) {
 		uint8_t i = ILinia(iIndex - 2);
-		strcpy(pcInsert, linia[i]);
-		return strlen(linia[i]);
+		strcpy(pcInsert, log_items[i]);
+		return strlen(log_items[i]);
 	}
 	return 0;
 }
@@ -171,25 +174,35 @@ void mySSIinit(void) {
 
 //CAN_HandleTypeDef hcan;
 
-struct CanData_t {
+typedef struct {
 	uint8_t to;						// kierunek transiski ; do kogo
 	uint8_t fun;					// funkcja
 	uint8_t	val;					// wartosc (H)
 	uint8_t	valL;					// wartosc (L)
-} CanTxData, CanRxData;
-CAN_TxHeaderTypeDef pCanTxHeader, pCanRxHeader;
+} CanData_t;//CanTxData, CanRxData;
+//CAN_TxHeaderTypeDef pCanTxHeader, pCanRxHeader;
 uint32_t TxMailbox;
 CAN_FilterTypeDef Can_FilterConfig;
 uint8_t id_device = 1;								// identyfikator urządzenia 1 - fabryczny
+
+typedef struct  {
+	CAN_RxHeaderTypeDef RxHeader; // 7 x uint32_t = 28
+	CanData_t RxData;							// 4 x uint8_t = 4
+} MsgQRxCan_t;  														// size = 32 bajty
+
+MsgQRxCan_t msg;
 
 
 void CanConfig() {
     // Inicjacja magistrali CAN
       /*Na podstawie kodu z materiału https://www.youtube.com/watch?v=ymD3F0h-ilE&t=924s */
-    pCanTxHeader.DLC = 3; // długość danych TxData/RxData
-    pCanTxHeader.IDE = CAN_ID_STD;
-    pCanTxHeader.RTR = CAN_RTR_DATA;
-    pCanTxHeader.StdId = 0;
+
+
+
+    //pCanTxHeader.DLC = 3; // długość danych TxData/RxData
+    //pCanTxHeader.IDE = CAN_ID_STD;
+    //pCanTxHeader.RTR = CAN_RTR_DATA;
+    //pCanTxHeader.StdId = 0;
 
 /*
       canfil.FilterBank = 0;
@@ -220,24 +233,105 @@ void CanConfig() {
     HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
 }
 
-void Can_RX(){
-    char s[80];
-
+void Can_RX(MsgQRxCan_t msg2){
 //    HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &pCanRxHeader, &CanRxData);
 
 //    if (pCanRxHeader.ExtId || (pCanRxHeader.StdId != 0x100 + id_device)) {
 //    	return;
 //    }{
-    sprintf(s, "can:%03x(%d) %d,%d,%d   ",pCanRxHeader.StdId, pCanRxHeader.DLC, CanRxData.to, CanRxData.fun, CanRxData.val);
+    //sprintf(s, "can:%03x(%d) %d,%d,%d   ",pCanRxHeader.StdId, pCanRxHeader.DLC, CanRxData.to, CanRxData.fun, CanRxData.val);
     //ssd1306_SetCursor(0, 48);
     //ssd1306_WriteString(s,  Font_7x10, White);
-    printLCD(s);
+    //log_put(s);
 
-    if (pCanRxHeader.ExtId == 0x001E8041) {
-    	uint16_t v = CanRxData.to + 256*CanRxData.fun;
-    	char sv[10];
-    	sprintf(sv,"%d",v);
-  	   	mqtt_my_publish(&mqtt_client, "RekWenNaw", sv);
+	uint16_t v1;
+	char t[20];
+	char s1[40];
+	v1 = msg.RxData.to + 256*msg.RxData.fun;
+ 	sprintf(s1,"%d",v1);
+
+ 	int16_t v2;
+	char s2[40];
+ 	v2 = msg.RxData.fun-msg.RxData.to;
+ 	sprintf(s2,"%d,%d",v2/10,v2%10);
+
+
+	switch (msg.RxHeader.ExtId)
+    {
+
+     case 0x448041:
+  	   	mqtt_my_publish(&mqtt_client, "wywiew_temp", s2);
+  	   	break;
+
+      case 0x488041:
+        mqtt_my_publish(&mqtt_client, "wywiew_wilg", s2);
+        break;
+
+      case 0x44c041:
+        mqtt_my_publish(&mqtt_client, "wyrzut_temp", s2);
+        break;
+
+      case 0x48C041:
+        mqtt_my_publish(&mqtt_client, "wyrzut_wilg", s2);
+        break;
+
+      case 0x370041:
+  	   	mqtt_my_publish(&mqtt_client, "czerpnia_temp", s2);
+  	   	break;
+
+      case 0x490041:
+  	   	mqtt_my_publish(&mqtt_client, "czerpnia_wilg", s2);
+  	   	break;
+
+      case 0x458041:
+  	   	mqtt_my_publish(&mqtt_client, "nawiew_temp", s2);
+  	   	break;
+
+      case 0x498041:
+  	   	mqtt_my_publish(&mqtt_client, "nawiew_wilg", s2);
+  	   	break;
+
+      case 0x1DC041:
+  	   	mqtt_my_publish(&mqtt_client, "wydajnosc_wyw", s1);
+  	   	break;
+
+      case 0x1E0041:
+  	   	mqtt_my_publish(&mqtt_client, "wydajnosc_naw", s1);
+  	   	break;
+
+      case 0x1E4041:
+  	   	mqtt_my_publish(&mqtt_client, "wywiew_wen", s1);
+  	   	break;
+
+      case 0x1E8041:
+  	   	mqtt_my_publish(&mqtt_client, "nawiew_wen", s1);
+  	   	break;
+
+      case 0x200041:
+  	   	mqtt_my_publish(&mqtt_client, "energia_curent", s1);
+  	   	break;
+
+      case 0x204041:
+  	   	mqtt_my_publish(&mqtt_client, "energia_total_year", s1);
+  	   	break;
+
+      case 0x208041:
+  	   	mqtt_my_publish(&mqtt_client, "energia_total", s1);
+  	   	break;
+
+      case 0x358041:
+  	   	mqtt_my_publish(&mqtt_client, "energia_odzyskana_year", s1);
+  	   	break;
+
+      case 0x35C041:
+  	   	mqtt_my_publish(&mqtt_client, "energia_odzyskana_total", s1);
+  	   	break;
+
+      default :
+      	sprintf(t,"ExtID=%x", msg.RxHeader.ExtId);
+      	sprintf(s1,"%d %d %d %d", msg.RxData.fun, msg.RxData.to, msg.RxData.val, msg.RxData.valL);
+    	  mqtt_my_publish(&mqtt_client, t, s1);
+    	  break;
     }
 }
 
@@ -249,14 +343,14 @@ static void mqtt_sub_request_cb(void *arg, err_t result)
      notifying user, retry subscribe or disconnect from server */
   char s[30];
   sprintf(s, "Sub result: %d", result);
-  printLCD(s);
+  log_put(s);
 }
 
 static void mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t tot_len)
 {
   char s[30];
-  sprintf(s, "in: %s %u", topic, (unsigned int)tot_len);
-  printLCD(s);
+//  sprintf(s, "in: %s %u", topic, (unsigned int)tot_len);
+//  log_put(s);
 }
 
 static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t flags)
@@ -266,8 +360,8 @@ static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t f
   char s2[40];
   strncpy(s1, data, len);//  sprintf(s,"data: %s", (const char *)data);
   s1[len] = '\0';
-  sprintf(s2,"data: %s", s1);
-  printLCD(s2);
+//  sprintf(s2,"data: %s", s1);
+//  log_put(s2);
 
   if(flags & MQTT_DATA_FLAG_LAST) {
     /* Last fragment of payload received (or whole part if payload fits receive buffer
@@ -294,7 +388,7 @@ static void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection
     if(err != ERR_OK) {
     	char s[30];
 		sprintf(s, "m_sub ret: %d", err);
-    	printLCD(s);
+    	log_put(s);
     }
   } else {
 //    printf("mqtt_connection_cb: Disconnected, reason: %d\n", status);
@@ -333,11 +427,11 @@ void example_do_connect(mqtt_client_t *client, const char *topic)
   if(err != ERR_OK) {
 	  char s[30];
       sprintf(s, "MQTT Con. error %d", err);
-	  printLCD(s);
+	  log_put(s);
   } else {
 	  char s[30];
 	  sprintf(s, "MQTT Connected");
-	  printLCD(s);
+	  log_put(s);
 	}
 }
 
@@ -348,7 +442,7 @@ static void mqtt_pub_request_cb(void *arg, err_t result)
   if(result != ERR_OK) {
 	  char s[30];
 	  sprintf(s, "Publish result: %d\n", result);
-	  printLCD(s);
+	  log_put(s);
   }
 }
 
@@ -364,7 +458,7 @@ void example_publish(mqtt_client_t *client, void *arg)
   if(err != ERR_OK) {
 	char s[20];
     sprintf(s, "Publish err: %d\n", err);
-    printLCD(s);
+    log_put(s);
   }
 }
 */
@@ -381,7 +475,7 @@ void mqtt_my_publish(mqtt_client_t *client, const char *t, const char *m)
   if(err != ERR_OK) {
 	char s[20];
     sprintf(s, "Publish err: %d\n", err);
-    printLCD(s);
+    log_put(s);
   }
 }
 
@@ -402,7 +496,7 @@ void mqtt_my_publish(mqtt_client_t *client, const char *t, const char *m)
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
-  .stack_size = 512 * 4,
+  .stack_size = 1024 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for myTaskButton */
@@ -424,12 +518,12 @@ osThreadId_t myTaskCanHandle;
 const osThreadAttr_t myTaskCan_attributes = {
   .name = "myTaskCan",
   .stack_size = 512 * 4,
-  .priority = (osPriority_t) osPriorityLow,
+  .priority = (osPriority_t) osPriorityHigh,
 };
-/* Definitions for myQueue01 */
-osMessageQueueId_t myQueue01Handle;
-const osMessageQueueAttr_t myQueue01_attributes = {
-  .name = "myQueue01"
+/* Definitions for QueueRxCan */
+osMessageQueueId_t QueueRxCanHandle;
+const osMessageQueueAttr_t QueueRxCan_attributes = {
+  .name = "QueueRxCan"
 };
 /* Definitions for myBinarySemButton */
 osSemaphoreId_t myBinarySemButtonHandle;
@@ -440,11 +534,6 @@ const osSemaphoreAttr_t myBinarySemButton_attributes = {
 osSemaphoreId_t myBinarySemLCDHandle;
 const osSemaphoreAttr_t myBinarySemLCD_attributes = {
   .name = "myBinarySemLCD"
-};
-/* Definitions for myBinarySemRXCan */
-osSemaphoreId_t myBinarySemRXCanHandle;
-const osSemaphoreAttr_t myBinarySemRXCan_attributes = {
-  .name = "myBinarySemRXCan"
 };
 
 /* Private function prototypes -----------------------------------------------*/
@@ -460,8 +549,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
-  HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &pCanRxHeader, &CanRxData);
-	osSemaphoreRelease(myBinarySemRXCanHandle);
+
+  HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &msg.RxHeader, &msg.RxData);
+  osMessageQueuePut(QueueRxCanHandle, &msg, 0U, 0U);
+
+  //osSemaphoreRelease(myBinarySemRXCanHandle);
 }
 
 
@@ -497,9 +589,6 @@ void MX_FREERTOS_Init(void) {
   /* creation of myBinarySemLCD */
   myBinarySemLCDHandle = osSemaphoreNew(1, 1, &myBinarySemLCD_attributes);
 
-  /* creation of myBinarySemRXCan */
-  myBinarySemRXCanHandle = osSemaphoreNew(1, 1, &myBinarySemRXCan_attributes);
-
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
@@ -509,8 +598,8 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE END RTOS_TIMERS */
 
   /* Create the queue(s) */
-  /* creation of myQueue01 */
-  myQueue01Handle = osMessageQueueNew (16, 32, &myQueue01_attributes);
+  /* creation of QueueRxCan */
+  QueueRxCanHandle = osMessageQueueNew (32, 32, &QueueRxCan_attributes);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
@@ -559,8 +648,7 @@ void StartDefaultTask(void *argument)
 
   //osDelay(2000);
 
-  ssd1306_Init();
-  printLCD("Init");
+  log_put("Init");
 
   extern struct netif gnetif;
 
@@ -579,7 +667,7 @@ void StartDefaultTask(void *argument)
 
   sprintf(s, "IP %d.%d.%d.%d\n\r",(local_IP & 0xff), ((local_IP >> 8) & 0xff), ((local_IP >> 16) & 0xff), (local_IP >> 24));
 
-  printLCD(s);
+  log_put(s);
 
 
 
@@ -599,9 +687,18 @@ void StartDefaultTask(void *argument)
   for(;;)
   {
 	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-//	  example_publish(&mqtt_client, 0);
-	  printf("Idle");
-	  osDelay(1000);
+  	uint32_t t = osKernelGetTickCount() /  osKernelGetTickFreq();
+  	uint8_t h = t /( 60 * 60 );
+  	uint8_t m = (t / 60) % 60;
+  	uint8_t s = t % 60;
+  	sprintf(stime, "%d:%02d:%02d", h,m,s);
+
+  	if (mqtt_client.conn_state == MQTT_CONNECT_REFUSED_SERVER) {
+  	  //example_do_connect(&mqtt_client, "DataSoft/stm32");
+  	}
+
+  	HAL_IWDG_Refresh(&hiwdg);
+	  osDelay(500);
   }
   /* USER CODE END StartDefaultTask */
 }
@@ -619,22 +716,13 @@ void StartTaskButton(void *argument)
   /* Infinite loop */
   for(;;)
   {
-	//osSemaphoreWait(myBinarySemButtonHandle, osWaitForever);
-	osSemaphoreAcquire(myBinarySemButtonHandle, osWaitForever);
-
-
-	LD1ON = !LD1ON;
-
-
-	HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, LD1ON);
-	char s[20];
-	int  i = sprintf(s, "Led2 %d", LD1ON);
-	printLCD(s);
-	mqtt_my_publish(&mqtt_client, "Led2", (char)LD1ON);
-
-	//CDC_Transmit_FS(s,  i);
-
-	//printf("");
+  	osSemaphoreAcquire(myBinarySemButtonHandle, osWaitForever);
+  	LD1ON = !LD1ON;
+  	HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, LD1ON);
+  	char s[20];
+  	int  i = sprintf(s, "Led2 %d", LD1ON);
+  	log_put(s);
+  	//mqtt_my_publish(&mqtt_client, "Led2", (char)LD1ON);
 
   }
   /* USER CODE END StartTaskButton */
@@ -651,16 +739,19 @@ void StartTaskLCD(void *argument)
 {
   /* USER CODE BEGIN StartTaskLCD */
   /* Infinite loop */
+
+  ssd1306_Init();
+
   for(;;) {
 	  //osSemaphoreWait(myBinarySemLCDHandle, osWaitForever);
 	  osSemaphoreAcquire(myBinarySemLCDHandle, osWaitForever);
 
-	  for (uint8_t i=0; i<MAX_LINIA ; i++){
+	  for (uint8_t i=0; i<LOG_MAX ; i++){
 		  ssd1306_SetCursor(0, 9*i);
-		  char _s[LEN_LINIA];
-		  strcpy(_s, linia[ILinia(i)]);
+		  char _s[LOG_LEN];
+		  strcpy(_s, log_items[ILinia(i)]);
 		  uint8_t l= strlen(_s);
-		  memset(&_s[l], ' ', LEN_LINIA-l);
+		  memset(&_s[l], ' ', LOG_LEN-l);
 		  _s[20] = '\0';
 		  ssd1306_WriteString(_s, Font_6x8, White);
 	  }
@@ -683,12 +774,19 @@ void StartTaskCan(void *argument)
   /* Infinite loop */
 
   CanConfig();
+
+  osStatus_t status;
+
   for(;;)
   {
 	//osSemaphoreWait(myBinarySemRXCanHandle, osWaitForever);
-	osSemaphoreAcquire(myBinarySemRXCanHandle, osWaitForever);
-	Can_RX();
-     //osDelay(1000);
+	//osSemaphoreAcquire(myBinarySemRXCanHandle, osWaitForever);
+
+  	status = osMessageQueueGet(QueueRxCanHandle, &msg, NULL, 0U);   // wait for message
+  	if (status == osOK) {
+  		Can_RX(msg);
+    }
+    osDelay(1);
   }
   /* USER CODE END StartTaskCan */
 }
@@ -698,16 +796,19 @@ void StartTaskCan(void *argument)
 
 int ILinia(int lp)
 {
-	return (top_linia + lp) % MAX_LINIA;
+	return (log_item + lp) % LOG_MAX;
 }
 
-void printLCD(const char *s)
+void log_put(const char *s)
 {
-	printf(s);
-	strcpy(linia[top_linia], s);
-	top_linia = (top_linia + 1) % MAX_LINIA;
-	osSemaphoreRelease(myBinarySemLCDHandle);
+	char sl[LOG_LEN];
+	sprintf(sl, "%s-%s", stime, s);
+	strcpy(log_items[log_item], sl);
+	log_item = (log_item + 1) % LOG_MAX;
+	osSemaphoreRelease( myBinarySemLCDHandle);
+	printf(sl);
 }
+
 
 
 /* USER CODE END Application */
