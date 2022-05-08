@@ -32,12 +32,10 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "cmsis_os.h"
-#include "can.h"
 #include "i2c.h"
 #include "iwdg.h"
 #include "lwip.h"
 #include "usart.h"
-#include "usb_device.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -92,13 +90,14 @@ void MX_FREERTOS_Init(void);
 //}
 
 
-
+/*
 
 int __io_putchar(int ch)
 {
-	 ITM_SendChar(ch); // do SWV
-	 //CDC_Transmit_FS(ch,  1);
+	 ITM_SendChar(ch);
+	 return ch;
 }
+*/
 
 /*
 
@@ -143,12 +142,13 @@ int main(void)
 
   /* USER CODE BEGIN SysInit */
 
+	set_stime();
+
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART3_UART_Init();
-  MX_CAN1_Init();
   MX_I2C2_Init();
   MX_IWDG_Init();
   /* USER CODE BEGIN 2 */
@@ -165,6 +165,7 @@ int main(void)
   /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
   while (1)
   {
     /* USER CODE END WHILE */

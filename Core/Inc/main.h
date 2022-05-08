@@ -114,6 +114,8 @@ void Error_Handler(void);
 /* USER CODE BEGIN Private defines */
 
 #define HTTPD_USE_CUSTOM_FSDATA 0
+#define LWIP_HTTPD_DYNAMIC_HEADERS 1
+
 
 /* USER CODE END Private defines */
 
