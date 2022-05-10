@@ -12,10 +12,6 @@
 
 #include "can.h"
 
-// ramka CAN
-
-//CAN_HandleTypeDef hcan;
-
 typedef struct {
 	uint8_t to;						// kierunek transiski ; do kogo
 	uint8_t fun;					// funkcja
@@ -23,7 +19,6 @@ typedef struct {
 	uint8_t	valL;					// wartosc (L)
 	uint8_t xxx[4];				// rezerwa
 } CanData_t;
-
 
 extern uint32_t TxMailbox;
 extern CAN_FilterTypeDef Can_FilterConfig;

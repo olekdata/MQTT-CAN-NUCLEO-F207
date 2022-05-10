@@ -81,7 +81,7 @@ const osThreadAttr_t defaultTask_attributes = {
   .cb_size = sizeof(defaultTaskControlBlock),
   .stack_mem = &defaultTaskBuffer[0],
   .stack_size = sizeof(defaultTaskBuffer),
-  .priority = (osPriority_t) osPriorityNormal1,
+  .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for myTaskButton */
 osThreadId_t myTaskButtonHandle;
@@ -105,7 +105,7 @@ const osThreadAttr_t myTaskLCD_attributes = {
   .cb_size = sizeof(myTaskLCDControlBlock),
   .stack_mem = &myTaskLCDBuffer[0],
   .stack_size = sizeof(myTaskLCDBuffer),
-  .priority = (osPriority_t) osPriorityLow1,
+  .priority = (osPriority_t) osPriorityLow,
 };
 /* Definitions for myTaskCan */
 osThreadId_t myTaskCanHandle;
@@ -117,7 +117,7 @@ const osThreadAttr_t myTaskCan_attributes = {
   .cb_size = sizeof(myTaskCanControlBlock),
   .stack_mem = &myTaskCanBuffer[0],
   .stack_size = sizeof(myTaskCanBuffer),
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t) osPriorityHigh,
 };
 /* Definitions for QueueRxCan */
 osMessageQueueId_t QueueRxCanHandle;
@@ -169,6 +169,7 @@ void StartTaskLCD(void *argument);
 void StartTaskCan(void *argument);
 
 extern void MX_LWIP_Init(void);
+extern void MX_USB_DEVICE_Init(void);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 /**
@@ -242,6 +243,9 @@ void StartDefaultTask(void *argument)
 {
   /* init code for LWIP */
   MX_LWIP_Init();
+
+  /* init code for USB_DEVICE */
+  MX_USB_DEVICE_Init();
   /* USER CODE BEGIN StartDefaultTask */
 	/* Infinite loop */
 
@@ -287,7 +291,6 @@ void StartDefaultTask(void *argument)
 
 */
 
-//  printf("Start");
 	example_do_connect(&mqtt_client, "DataSoft/stm32");
 
 	for (;;) {
@@ -342,7 +345,7 @@ void StartTaskLCD(void *argument)
   /* USER CODE BEGIN StartTaskLCD */
 	/* Infinite loop */
 
-//	ssd1306_Init();
+	ssd1306_Init();
 
 	for (;;) {
 
@@ -376,7 +379,7 @@ void StartTaskCan(void *argument)
   /* USER CODE BEGIN StartTaskCan */
 	/* Infinite loop */
 
-//	CanConfig();
+	CanConfig();
 
 	osStatus_t status;
 
@@ -384,10 +387,10 @@ void StartTaskCan(void *argument)
 		//osSemaphoreWait(myBinarySemRXCanHandle, osWaitForever);
 		//osSemaphoreAcquire(myBinarySemRXCanHandle, osWaitForever);
 
-//		status = osMessageQueueGet(QueueRxCanHandle, &msg, NULL, 0U); // wait for message
-//		if (status == osOK) {
-//			Can_RX();
-//		}
+		status = osMessageQueueGet(QueueRxCanHandle, &msg, NULL, 0U); // wait for message
+		if (status == osOK) {
+			Can_RX();
+		}
 		osDelay(1);
 	}
   /* USER CODE END StartTaskCan */

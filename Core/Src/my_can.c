@@ -113,7 +113,6 @@ uint8_t Sofar_RX(void) {
 
 void Can_RX(void){
 
-	return;
 	if (Sofar_RX())
 		return;
 
