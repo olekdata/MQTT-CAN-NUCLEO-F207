@@ -7,12 +7,13 @@
 
 #include "my_can.h"
 #include "my_mqtt.h"
+#include "my_log.h"
 
 uint32_t TxMailbox;
 CAN_FilterTypeDef Can_FilterConfig;
 
 
-MsgQRxCan_t msg;
+MsgQRxCan_t msg_can;
 
 
 void CanConfig(void) {
@@ -60,11 +61,11 @@ struct sofar_t {
 	char topic[30];
 	uint8_t val_typ;
 } sofar[] = {
-{ 0x448041, "wywiew_temp", 0},
-{ 0x488041, "wywiew_wilg", 1},
+{ 0x448041, "wywiew_temp", 0}, 		//0
+{ 0x488041, "wywiew_wilg", 1}, 		//1
 { 0x44c041, "wyrzut_temp", 0},
 { 0x48C041, "wyrzut_wilg", 1},
-{ 0x370041, "czerpnia_temp", 0},
+{ 0x370041, "czerpnia_temp", 0},  //4
 { 0x490041, "czerpnia_wilg", 1},
 { 0x458041, "nawiew_temp", 0},
 { 0x498041, "nawiew_wilg", 1},
@@ -77,6 +78,7 @@ struct sofar_t {
 { 0x208041, "energia_total", 2},
 { 0x358041, "energia_odzyskana_year", 2},
 { 0x35C041, "energia_odzyskana_total", 2}
+//           12345678901234567890123
 };
 
 
@@ -84,27 +86,30 @@ uint8_t sofar_len = sizeof(sofar) / sizeof(sofar[0]);
 
 uint8_t Sofar_RX(void) {
 	for (uint8_t i = 0; i < sofar_len; i++)
-		if (sofar[i].ExtId == msg.RxHeader.ExtId){
+		if (sofar[i].ExtId == msg_can.RxHeader.ExtId){
 			int16_t v;
-  		char s[40];
+  		char s[LOG_LEN];
 			sprintf(s,"??");
 
 			switch (sofar[i].val_typ){
 			  case 0:
-				   v = msg.RxData.to-msg.RxData.fun;
+				   v = msg_can.RxData.to-msg_can.RxData.fun;
 				   sprintf(s,"%d,%d",v/10,v%10);
 				   break;
 			  case 1:
-				   v = msg.RxData.to;
+				   v = msg_can.RxData.to;
 				   sprintf(s,"%d",v);
 				   break;
 			  case 2:
-			  	 v = msg.RxData.to + 256*msg.RxData.fun;
+			  	 v = msg_can.RxData.to + 256*msg_can.RxData.fun;
 			 		 sprintf(s,"%d",v);
 			 		 break;
 			};
 
-   	  mqtt_my_publish(&mqtt_client, sofar[i].topic, s);
+//deb
+			my_mqtt_to_Queue(sofar[i].topic, s);
+//			log_put(s);
+
 			return 1;
 	  };
 	return 0;
@@ -116,12 +121,13 @@ void Can_RX(void){
 	if (Sofar_RX())
 		return;
 
-	char t[20];
-	char s[40];
+	char t[40];
+	char s[LOG_LEN];
 
-	sprintf(t,"ExtID=%lX", msg.RxHeader.ExtId);
-	sprintf(s,"%d %d %d %d %d", msg.RxHeader.DLC,  msg.RxData.to, msg.RxData.fun, msg.RxData.val, msg.RxData.valL);
-	mqtt_my_publish(&mqtt_client, t, s);
+	sprintf(t,"ExtID=%lX", msg_can.RxHeader.ExtId);
+	sprintf(s,"%d %d %d %d %d", msg_can.RxHeader.DLC,  msg_can.RxData.to, msg_can.RxData.fun, msg_can.RxData.val, msg_can.RxData.valL);
+	// deb
+	my_mqtt_to_Queue(t, s);
 }
 
 

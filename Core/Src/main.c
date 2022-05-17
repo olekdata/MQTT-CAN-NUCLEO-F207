@@ -21,6 +21,18 @@
   */
 
 
+/* Projekt się zawiesza po pewnym czasie nawet po kilunastu minutach wyskakuje do HardFault_Handler
+ *
+ * 10.05.2022 10:00 wykomentowane operacje lwip , httpd, mqtt, can, lcd i jest ok działa już 8000 sec ponad dwie godziny.
+ * 10.05.2022 13:00 uruchomiono lcd, jest ok 6700 sec
+ * 10.05.2022 13:00 uruchamiam can
+ *
+ *
+ *
+ */
+
+
+
 #define LWIP_PLATFORM_DIAG(message) printf(message)
 
 
@@ -78,45 +90,40 @@ void MX_FREERTOS_Init(void);
 // Zeby otwierał się USB wirtual com
 // https://stackoverflow.com/questions/56490843/what-is-issue-with-stm32-virtual-com-port-i-can-not-open-it
 
-
-//void send_char(char c)
-//{
-//	HAL_UART_Transmit(&huart3, (uint8_t*)&c, 1, 1000);
-//}
-
-
-//int __io_putchar(int c)
-//{
-//	send_char(c);
-//	return c;
-//}
-
-
 /*
-
-int __io_putchar(int ch)
+void send_char(char c)
 {
-	 ITM_SendChar(ch);
-	 return ch;
+	HAL_UART_Transmit(&huart3, (uint8_t*)&c, 1, 1000);
+}
+
+
+int __io_putchar(int c)
+{
+	send_char(c);
+	return c;
 }
 */
 
 /*
+int __io_putchar(int ch)
+{
+   CDC_Transmit_FS(ch,  1);
+	 return ch;
+}
+*/
 
 int _write(int file,char *ptr, int len)
 {
 	int DataIdx;
+  CDC_Transmit_FS(ptr,  len);
 	for(DataIdx= 0; DataIdx< len; DataIdx++)
 	{
    //__io_putchar(*ptr++);
 		ITM_SendChar(*ptr++);
 	}
-//  CDC_Transmit_FS(ptr,  len);
-//  CDC_Transmit_FS("\r",  1);
 	return len;
 }
 
-*/
 
 /* USER CODE END 0 */
 

@@ -8,8 +8,6 @@
 #ifndef INC_MY_CAN_H_
 #define INC_MY_CAN_H_
 
-#define MQTT_OUTPUT_RINGBUF_SIZE 512
-
 #include "can.h"
 
 typedef struct {
@@ -31,7 +29,7 @@ typedef struct  {
 	CanData_t RxData;							// 4 x uint8_t = 4
 } MsgQRxCan_t;  														// size = 32 bajty
 
-extern MsgQRxCan_t msg;
+extern MsgQRxCan_t msg_can;
 
 void CanConfig(void);
 void Can_RX(void);

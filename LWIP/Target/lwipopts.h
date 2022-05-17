@@ -48,11 +48,13 @@
 /* LwIP Stack Parameters (modified compared to initialization value in opt.h) -*/
 /* Parameters set in STM32CubeMX LwIP Configuration GUI -*/
 /*----- Default Value for MEMP_NUM_UDP_PCB: 4 ---*/
-#define MEMP_NUM_UDP_PCB 8
+#define MEMP_NUM_UDP_PCB 200
 /*----- Default Value for MEMP_NUM_TCP_PCB: 5 ---*/
-#define MEMP_NUM_TCP_PCB 10
+#define MEMP_NUM_TCP_PCB 20
 /*----- Value in opt.h for MEM_ALIGNMENT: 1 -----*/
 #define MEM_ALIGNMENT 4
+/*----- Default Value for MEMP_NUM_SYS_TIMEOUT: 3 ---*/
+#define MEMP_NUM_SYS_TIMEOUT 13
 /*----- Value in opt.h for LWIP_ETHERNET: LWIP_ARP || PPPOE_SUPPORT -*/
 #define LWIP_ETHERNET 1
 /*----- Value in opt.h for LWIP_DNS_SECURE: (LWIP_DNS_SECURE_RAND_XID | LWIP_DNS_SECURE_NO_MULTIPLE_OUTSTANDING | LWIP_DNS_SECURE_RAND_SRC_PORT) -*/
@@ -68,7 +70,7 @@
 /*----- Value in opt.h for LWIP_NETIF_LINK_CALLBACK: 0 -----*/
 #define LWIP_NETIF_LINK_CALLBACK 1
 /*----- Value in opt.h for TCPIP_THREAD_STACKSIZE: 0 -----*/
-#define TCPIP_THREAD_STACKSIZE 1024
+#define TCPIP_THREAD_STACKSIZE 2048
 /*----- Value in opt.h for TCPIP_THREAD_PRIO: 1 -----*/
 #define TCPIP_THREAD_PRIO 24
 /*----- Value in opt.h for TCPIP_MBOX_SIZE: 0 -----*/
@@ -78,7 +80,7 @@
 /*----- Value in opt.h for SLIPIF_THREAD_PRIO: 1 -----*/
 #define SLIPIF_THREAD_PRIO 3
 /*----- Value in opt.h for DEFAULT_THREAD_STACKSIZE: 0 -----*/
-#define DEFAULT_THREAD_STACKSIZE 1024
+#define DEFAULT_THREAD_STACKSIZE 2048
 /*----- Value in opt.h for DEFAULT_THREAD_PRIO: 1 -----*/
 #define DEFAULT_THREAD_PRIO 3
 /*----- Value in opt.h for DEFAULT_UDP_RECVMBOX_SIZE: 0 -----*/
@@ -99,8 +101,10 @@
 #define HTTPD_USE_CUSTOM_FSDATA 1
 /*----- Default Value for LWIP_SNTP: 0 ---*/
 #define LWIP_SNTP 1
-/*----- Value in opt.h for LWIP_STATS: 1 -----*/
-#define LWIP_STATS 0
+/*----- Default Value for LWIP_STATS: 0 ---*/
+#define LWIP_STATS 1
+/*----- Value in opt.h for MIB2_STATS: 0 or SNMP_LWIP_MIB2 -----*/
+#define MIB2_STATS 0
 /*----- Value in opt.h for CHECKSUM_GEN_IP: 1 -----*/
 #define CHECKSUM_GEN_IP 0
 /*----- Value in opt.h for CHECKSUM_GEN_UDP: 1 -----*/
@@ -121,6 +125,40 @@
 #define CHECKSUM_CHECK_ICMP 0
 /*----- Value in opt.h for CHECKSUM_CHECK_ICMP6: 1 -----*/
 #define CHECKSUM_CHECK_ICMP6 0
+/*----- Default Value for ETHARP_DEBUG: LWIP_DBG_OFF ---*/
+#define ETHARP_DEBUG LWIP_DBG_ON
+/*----- Default Value for NETIF_DEBUG: LWIP_DBG_OFF ---*/
+#define NETIF_DEBUG LWIP_DBG_ON
+/*----- Default Value for PBUF_DEBUG: LWIP_DBG_OFF ---*/
+#define PBUF_DEBUG LWIP_DBG_ON
+/*----- Default Value for API_LIB_DEBUG: LWIP_DBG_OFF ---*/
+#define API_LIB_DEBUG LWIP_DBG_ON
+/*----- Default Value for API_MSG_DEBUG: LWIP_DBG_OFF ---*/
+#define API_MSG_DEBUG LWIP_DBG_ON
+/*----- Default Value for SOCKETS_DEBUG: LWIP_DBG_OFF ---*/
+#define SOCKETS_DEBUG LWIP_DBG_ON
+/*----- Default Value for ICMP_DEBUG: LWIP_DBG_OFF ---*/
+#define ICMP_DEBUG LWIP_DBG_ON
+/*----- Default Value for IGMP_DEBUG: LWIP_DBG_OFF ---*/
+#define IGMP_DEBUG LWIP_DBG_ON
+/*----- Default Value for INET_DEBUG: LWIP_DBG_OFF ---*/
+#define INET_DEBUG LWIP_DBG_ON
+/*----- Default Value for IP_DEBUG: LWIP_DBG_OFF ---*/
+#define IP_DEBUG LWIP_DBG_ON
+/*----- Default Value for IP_REASS_DEBUG: LWIP_DBG_OFF ---*/
+#define IP_REASS_DEBUG LWIP_DBG_ON
+/*----- Default Value for RAW_DEBUG: LWIP_DBG_OFF ---*/
+#define RAW_DEBUG LWIP_DBG_ON
+/*----- Default Value for MEM_DEBUG: LWIP_DBG_OFF ---*/
+#define MEM_DEBUG LWIP_DBG_ON
+/*----- Default Value for MEMP_DEBUG: LWIP_DBG_OFF ---*/
+#define MEMP_DEBUG LWIP_DBG_ON
+/*----- Default Value for SYS_DEBUG: LWIP_DBG_OFF ---*/
+#define SYS_DEBUG LWIP_DBG_ON
+/*----- Default Value for TIMERS_DEBUG: LWIP_DBG_OFF ---*/
+#define TIMERS_DEBUG LWIP_DBG_ON
+/*----- Default Value for TCP_DEBUG: LWIP_DBG_OFF ---*/
+#define TCP_DEBUG LWIP_DBG_ON
 /*-----------------------------------------------------------------------------*/
 /* USER CODE BEGIN 1 */
 

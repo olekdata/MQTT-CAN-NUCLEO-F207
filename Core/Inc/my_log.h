@@ -9,7 +9,7 @@
 #define INC_MY_LOG_H_
 
 #define LOG_MAX 7
-#define LOG_LEN 40
+#define LOG_LEN 50
 
 #include "stdio.h"
 
@@ -18,7 +18,7 @@ extern char log_items[LOG_MAX][LOG_LEN];
 extern uint8_t log_item;
 
 extern uint32_t itime;
-extern char stime[10];
+extern char stime[12];
 
 int ILinia(uint8_t lp);
 void log_put(const char *s);
