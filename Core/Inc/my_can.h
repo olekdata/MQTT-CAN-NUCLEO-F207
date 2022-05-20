@@ -29,10 +29,13 @@ typedef struct  {
 	CanData_t RxData;							// 4 x uint8_t = 4
 } MsgQRxCan_t;  														// size = 32 bajty
 
-extern MsgQRxCan_t msg_can;
+typedef struct  {
+	CAN_TxHeaderTypeDef TxHeader; // 5 x uint32_t + 1 = 21
+	CanData_t TxData;							// 4 x uint8_t = 4
+} MsgQTxCan_t;
 
 void CanConfig(void);
-void Can_RX(void);
+void Can_RX(const MsgQRxCan_t *msg_can);
 
 
 #endif /* INC_MY_CAN_H_ */

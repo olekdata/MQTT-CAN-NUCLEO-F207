@@ -5,6 +5,7 @@
  *      Author: olek
 // */
 
+#include "my_mcu.h"
 #include "my_can.h"
 #include "my_mqtt.h"
 #include "my_log.h"
@@ -13,7 +14,7 @@ uint32_t TxMailbox;
 CAN_FilterTypeDef Can_FilterConfig;
 
 
-MsgQRxCan_t msg_can;
+//MsgQRxCan_t msg_can;
 
 
 void CanConfig(void) {
@@ -84,31 +85,31 @@ struct sofar_t {
 
 uint8_t sofar_len = sizeof(sofar) / sizeof(sofar[0]);
 
-uint8_t Sofar_RX(void) {
+uint8_t Sofar_RX(const MsgQRxCan_t *msg_can) {
 	for (uint8_t i = 0; i < sofar_len; i++)
-		if (sofar[i].ExtId == msg_can.RxHeader.ExtId){
+		if (sofar[i].ExtId == msg_can->RxHeader.ExtId){
 			int16_t v;
   		char s[LOG_LEN];
+  		char t[50];
 			sprintf(s,"??");
 
 			switch (sofar[i].val_typ){
 			  case 0:
-				   v = msg_can.RxData.to-msg_can.RxData.fun;
+				   v = msg_can->RxData.to-msg_can->RxData.fun;
 				   sprintf(s,"%d,%d",v/10,v%10);
 				   break;
 			  case 1:
-				   v = msg_can.RxData.to;
+				   v = msg_can->RxData.to;
 				   sprintf(s,"%d",v);
 				   break;
 			  case 2:
-			  	 v = msg_can.RxData.to + 256*msg_can.RxData.fun;
+			  	 v = msg_can->RxData.to + 256*msg_can->RxData.fun;
 			 		 sprintf(s,"%d",v);
 			 		 break;
 			};
 
-//deb
-			my_mqtt_to_Queue(sofar[i].topic, s);
-//			log_put(s);
+			sprintf(t,"rekuperator/%s",sofar[i].topic);
+			my_mqtt_to_Queue(t, s);
 
 			return 1;
 	  };
@@ -116,16 +117,19 @@ uint8_t Sofar_RX(void) {
 }
 
 
-void Can_RX(void){
+void Can_RX(const MsgQRxCan_t *msg_can){
 
-	if (Sofar_RX())
+	if (Sofar_RX(msg_can))
 		return;
 
-	char t[40];
+	if (my_mcu_send_can(msg_can))
+		return;
+
+	char t[50];
 	char s[LOG_LEN];
 
-	sprintf(t,"ExtID=%lX", msg_can.RxHeader.ExtId);
-	sprintf(s,"%d %d %d %d %d", msg_can.RxHeader.DLC,  msg_can.RxData.to, msg_can.RxData.fun, msg_can.RxData.val, msg_can.RxData.valL);
+	sprintf(t,"reszta/ExtID=%lX", msg_can->RxHeader.ExtId);
+	sprintf(s,"%d %d %d %d %d", msg_can->RxHeader.DLC,  msg_can->RxData.to, msg_can->RxData.fun, msg_can->RxData.val, msg_can->RxData.valL);
 	// deb
 	my_mqtt_to_Queue(t, s);
 }

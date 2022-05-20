@@ -10,12 +10,13 @@
 #include <string.h>
 #include "cmsis_os2.h"
 #include "my_log.h"
+#include "my_mcu.h"
 
 
 extern osMessageQueueId_t QueueTxMqttHandle;
 
 
-mqtt_msg__t mqtt_msg;
+//mqtt_msg__t mqtt_msg;
 
 mqtt_client_t mqtt_client;
 
@@ -25,15 +26,16 @@ static void mqtt_sub_request_cb(void *arg, err_t result)
      normal behaviour would be to take some action if subscribe fails like
      notifying user, retry subscribe or disconnect from server */
   char s[LOG_LEN];
-  sprintf(s, "Sub result: %d", result);
+  sprintf(s, "Sub req %d", result);
   log_put(s);
 }
 
 static void mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t tot_len)
 {
 //  char s[LOG_LEN];
-//  sprintf(s, "in: %s %u", topic, (unsigned int)tot_len);
+//  printf("in: %s %u\n", topic, (unsigned int)tot_len);
 //  log_put(s);
+	my_mcu_recive_mqtt_topic(topic);
 }
 
 
@@ -41,17 +43,22 @@ static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t f
 {
 
 //  char s[LOG_LEN];
+//  char s2[LOG_LEN];
 //  strncpy(s, data, len);//  sprintf(s,"data: %s", (const char *)data);
 //  s[len] = '\0';
-//  sprintf(s2,"data: %s", s1);
-//  log_put(s);
 
-  if(flags & MQTT_DATA_FLAG_LAST) {
-    /* Last fragment of payload received (or whole part if payload fits receive buffer
-       See MQTT_VAR_HEADER_BUFFER_LEN)  */
 
-    /* Call function or do action depending on reference, in this case inpub_id */
-  }
+//  printf("flag:%d data: %s\n", flags, (const char *)data);
+//    sprintf(s2,"data: %s", s);
+//  log_put(s2);
+
+//   log_put("in xxxx");
+
+	if(flags & MQTT_DATA_FLAG_LAST) {
+
+		my_mcu_recive_mqtt_data(data, len);
+
+	}
 }
 
 
@@ -63,20 +70,20 @@ static void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection
 //    printf("mqtt_connection_cb: Successfully connected\n");
 
     /* Setup callback for incoming publish requests */
+
     mqtt_set_inpub_callback(client, mqtt_incoming_publish_cb, mqtt_incoming_data_cb, arg);
 
     /* Subscribe to a topic named "subtopic" with QoS level 1, call mqtt_sub_request_cb with result */
 
-    err = mqtt_subscribe(client, "DataSoft/stm32/#", 1, mqtt_sub_request_cb, arg);
-/*
+    err = mqtt_subscribe(client, "DataSoft/stm32/can/#", 1, mqtt_sub_request_cb, arg);
+
     if(err != ERR_OK) {
     	char s[LOG_LEN];
-	  	sprintf(s, "m_sub ret: %d", err);
+	  	sprintf(s, "sub err %d", err);
       log_put(s);
     }
-*/
     } else {
-//    printf("mqtt_connection_cb: Disconnected, reason: %d\n", status);
+      log_put("sub OK");
 
     /* Its more nice to be connected, so try to reconnect */
       my_mqtt_do_connect(client);
@@ -164,13 +171,16 @@ void my_mqtt_to_Queue(const char *t, const char *m){
 
 	osStatus_t status;
 
+	mqtt_msg__t mqtt_msg;
+
+
 	strcpy(mqtt_msg.topic, t);
 	strcpy(mqtt_msg.value, m);
 
 	status = osMessageQueuePut(QueueTxMqttHandle, &mqtt_msg, 0U, 0U);
 	if (status != osOK) {
 		 char s[LOG_LEN];
-		 sprintf(s, "QPut mqtt err %d\n", status);
+		 sprintf(s, "QPut mq er %d\n", status);
 		 log_put(s);
 	}
 }

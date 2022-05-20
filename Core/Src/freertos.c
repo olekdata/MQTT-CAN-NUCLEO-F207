@@ -176,6 +176,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 }
 
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
+	MsgQRxCan_t msg_can;
 	osStatus_t status;
 	HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &msg_can.RxHeader, &msg_can.RxData);
 	status = osMessageQueuePut(QueueRxCanHandle, &msg_can, 0U, 0U);
@@ -453,9 +454,10 @@ void StartTaskCan(void *argument)
 		//osSemaphoreWait(myBinarySemRXCanHandle, osWaitForever);
 		//osSemaphoreAcquire(myBinarySemRXCanHandle, osWaitForever);
 /*deb*/
+		MsgQRxCan_t msg_can;
 		status = osMessageQueueGet(QueueRxCanHandle, &msg_can, NULL, 0U); // wait for message
 		if (status == osOK) {
-			Can_RX();
+			Can_RX(&msg_can);
 		}
 /* */
 		osDelay(1);
@@ -494,6 +496,8 @@ void StartTaskMQTT(void *argument)
   for(;;)
   {
   	if (mqtt_client_is_connected(&mqtt_client)){
+  		mqtt_msg__t mqtt_msg;
+
 			status = osMessageQueueGet(QueueTxMqttHandle, &mqtt_msg, NULL, 0U); // wait for message
 			if (status == osOK)
 				my_mqtt_publish(&mqtt_client, mqtt_msg.topic, mqtt_msg.value);

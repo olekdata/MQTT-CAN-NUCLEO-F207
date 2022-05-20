@@ -21,7 +21,7 @@ typedef struct {
 	char value[MQTT_MSG_VALUE_LEN];
 } mqtt_msg__t;
 
-extern mqtt_msg__t mqtt_msg;
+//extern mqtt_msg__t mqtt_msg;
 
 
 extern mqtt_client_t mqtt_client;
