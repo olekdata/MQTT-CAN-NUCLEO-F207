@@ -8,6 +8,8 @@
 #include "my_log.h"
 #include "cmsis_os2.h"
 #include "string.h"
+#include "stats.h"
+
 
 char log_items[LOG_MAX][LOG_LEN];
 uint8_t log_item = 0;
@@ -28,8 +30,11 @@ void log_put(const char *s) {
 	if (s[0] == 0) {
 		sprintf(sl, "+%s\n", stime);
 		strcpy(log_items[log_item], sl);
-		if (itime % 60 == 0)
+		if (itime % 60 == 0){
 			printf(sl);
+			stats_display();
+			//MEM_STATS_DISPLAY();
+		}
 
 	} else {
 		sprintf(sl, "%s-%s\n", stime, s);

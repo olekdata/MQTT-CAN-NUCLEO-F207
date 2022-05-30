@@ -9,9 +9,12 @@
 #include "my_can.h"
 #include "my_mqtt.h"
 #include "my_log.h"
+#include "cmsis_os2.h"
 
 uint32_t TxMailbox;
 CAN_FilterTypeDef Can_FilterConfig;
+
+extern osMessageQueueId_t QueueTxCanHandle;
 
 
 //MsgQRxCan_t msg_can;
@@ -132,6 +135,23 @@ void Can_RX(const MsgQRxCan_t *msg_can){
 	sprintf(s,"%d %d %d %d %d", msg_can->RxHeader.DLC,  msg_can->RxData.to, msg_can->RxData.fun, msg_can->RxData.val, msg_can->RxData.valL);
 	// deb
 	my_mqtt_to_Queue(t, s);
+}
+
+
+void my_can_Tx_Queue(const MsgQTxCan_t *msg){
+
+	osStatus_t status;
+
+  status = osMessageQueuePut(QueueTxCanHandle, msg, 0U, 0U);
+	if (status != osOK) {
+		 char s[LOG_LEN];
+		 sprintf(s, "QPut can er %d\n", status);
+		 log_put(s);
+	}
+}
+
+void my_can_Tx(const MsgQTxCan_t *msg){
+	HAL_CAN_AddTxMessage(&hcan1, &msg->TxHeader, &msg->TxData, &TxMailbox);
 }
 
 

@@ -74,7 +74,7 @@ uint8_t LWIP_Init_flag = 0;
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
-uint32_t defaultTaskBuffer[ 1024 ];
+uint32_t defaultTaskBuffer[ 2048 ];
 osStaticThreadDef_t defaultTaskControlBlock;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
@@ -82,7 +82,7 @@ const osThreadAttr_t defaultTask_attributes = {
   .cb_size = sizeof(defaultTaskControlBlock),
   .stack_mem = &defaultTaskBuffer[0],
   .stack_size = sizeof(defaultTaskBuffer),
-  .priority = (osPriority_t) osPriorityHigh,
+  .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for TaskButton */
 osThreadId_t TaskButtonHandle;
@@ -94,7 +94,7 @@ const osThreadAttr_t TaskButton_attributes = {
   .cb_size = sizeof(TaskButtonControlBlock),
   .stack_mem = &TaskButtonBuffer[0],
   .stack_size = sizeof(TaskButtonBuffer),
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t) osPriorityLow,
 };
 /* Definitions for TaskLCD */
 osThreadId_t TaskLCDHandle;
@@ -106,11 +106,11 @@ const osThreadAttr_t TaskLCD_attributes = {
   .cb_size = sizeof(TaskLCDControlBlock),
   .stack_mem = &TaskLCDBuffer[0],
   .stack_size = sizeof(TaskLCDBuffer),
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t) osPriorityLow,
 };
 /* Definitions for TaskCan */
 osThreadId_t TaskCanHandle;
-uint32_t TaskCanBuffer[ 1024 ];
+uint32_t TaskCanBuffer[ 2048 ];
 osStaticThreadDef_t TaskCanControlBlock;
 const osThreadAttr_t TaskCan_attributes = {
   .name = "TaskCan",
@@ -122,9 +122,14 @@ const osThreadAttr_t TaskCan_attributes = {
 };
 /* Definitions for TaskMQTT */
 osThreadId_t TaskMQTTHandle;
+uint32_t TaskMQTTBuffer[ 2048 ];
+osStaticThreadDef_t TaskMQTTControlBlock;
 const osThreadAttr_t TaskMQTT_attributes = {
   .name = "TaskMQTT",
-  .stack_size = 1024 * 4,
+  .cb_mem = &TaskMQTTControlBlock,
+  .cb_size = sizeof(TaskMQTTControlBlock),
+  .stack_mem = &TaskMQTTBuffer[0],
+  .stack_size = sizeof(TaskMQTTBuffer),
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for QueueRxCan */
@@ -148,6 +153,17 @@ const osMessageQueueAttr_t QueueTxMqtt_attributes = {
   .cb_size = sizeof(QueueTxMqttControlBlock),
   .mq_mem = &QueueTxMqttBuffer,
   .mq_size = sizeof(QueueTxMqttBuffer)
+};
+/* Definitions for QueueTxCan */
+osMessageQueueId_t QueueTxCanHandle;
+uint8_t QueueTxCanBuffer[ 32 * 32 ];
+osStaticMessageQDef_t QueueTxCanControlBlock;
+const osMessageQueueAttr_t QueueTxCan_attributes = {
+  .name = "QueueTxCan",
+  .cb_mem = &QueueTxCanControlBlock,
+  .cb_size = sizeof(QueueTxCanControlBlock),
+  .mq_mem = &QueueTxCanBuffer,
+  .mq_size = sizeof(QueueTxCanBuffer)
 };
 /* Definitions for BinarySemButton */
 osSemaphoreId_t BinarySemButtonHandle;
@@ -262,6 +278,9 @@ void MX_FREERTOS_Init(void) {
   /* creation of QueueTxMqtt */
   QueueTxMqttHandle = osMessageQueueNew (16, 100, &QueueTxMqtt_attributes);
 
+  /* creation of QueueTxCan */
+  QueueTxCanHandle = osMessageQueueNew (32, 32, &QueueTxCan_attributes);
+
   /* USER CODE BEGIN RTOS_QUEUES */
 	/* add queues, ... */
   /* USER CODE END RTOS_QUEUES */
@@ -344,6 +363,7 @@ void StartDefaultTask(void *argument)
 
 */
 
+	stats_display();
 
 	for (;;) {
 		HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
@@ -351,8 +371,8 @@ void StartDefaultTask(void *argument)
 /*deb*/
    char slicz[10];
    sprintf(slicz, "%lu", itime);
-   my_mqtt_to_Queue("licz", slicz);
-   my_mqtt_to_Queue("czas", stime);
+   my_mqtt_to_Queue("stm32/licz", slicz);
+   my_mqtt_to_Queue("stm32/czas", stime);
 /**/
 		log_put("");
 
@@ -451,15 +471,19 @@ void StartTaskCan(void *argument)
 	osStatus_t status;
 
 	for (;;) {
-		//osSemaphoreWait(myBinarySemRXCanHandle, osWaitForever);
-		//osSemaphoreAcquire(myBinarySemRXCanHandle, osWaitForever);
-/*deb*/
-		MsgQRxCan_t msg_can;
-		status = osMessageQueueGet(QueueRxCanHandle, &msg_can, NULL, 0U); // wait for message
+		MsgQRxCan_t msg_RxCan;
+		status = osMessageQueueGet(QueueRxCanHandle, &msg_RxCan, NULL, 0);
 		if (status == osOK) {
-			Can_RX(&msg_can);
+			Can_RX(&msg_RxCan);
 		}
-/* */
+
+		MsgQTxCan_t msg_TxCan;
+
+		status = osMessageQueueGet(QueueTxCanHandle, &msg_TxCan, NULL, 0);
+		if (status == osOK) {
+			my_can_Tx(&msg_TxCan);
+		}
+
 		osDelay(1);
 	}
   /* USER CODE END StartTaskCan */
@@ -502,6 +526,7 @@ void StartTaskMQTT(void *argument)
 			if (status == osOK)
 				my_mqtt_publish(&mqtt_client, mqtt_msg.topic, mqtt_msg.value);
 		} else {
+			log_put("mqtt not cone.");
  // 		my_mqtt_do_connect(&mqtt_client);
 		}
     osDelay(1);

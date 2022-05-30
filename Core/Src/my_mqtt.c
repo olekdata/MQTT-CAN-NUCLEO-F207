@@ -75,7 +75,13 @@ static void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection
 
     /* Subscribe to a topic named "subtopic" with QoS level 1, call mqtt_sub_request_cb with result */
 
-    err = mqtt_subscribe(client, "DataSoft/stm32/can/#", 1, mqtt_sub_request_cb, arg);
+    char t[50];
+
+    strcpy(t, topic_can);
+
+    strcat(t,"/#");
+
+    err = mqtt_subscribe(client, t, 1, mqtt_sub_request_cb, arg);
 
     if(err != ERR_OK) {
     	char s[LOG_LEN];
@@ -152,17 +158,18 @@ void my_mqtt_publish(mqtt_client_t *client, const char *t, const char *m)
   err_t err;
   u8_t qos = 0; // 0 - bez potwierdzenia odbioru
   u8_t retain = 0; // No don't retain such crappy payload...
-  char topic[50];
-  sprintf(topic, "DataSoft/stm32/%s", t);
+  char topic[80];
+  sprintf(topic, "%s/%s", topic_root, t);
 
   err = mqtt_publish(client, topic, m, strlen(m), qos, retain, mqtt_pub_request_cb, 0);
   if(err != ERR_OK) {
 	  char s[LOG_LEN];
     sprintf(s, "Pub. err: %d\n", err);
     log_put(s);
-    osDelay(1000);
-    HAL_NVIC_SystemReset();
-    while (1) {}; // reset przez wotch dog
+    Error_Handler();
+//    osDelay(1000);
+    //HAL_NVIC_SystemReset();
+    //while (1) {}; // reset przez wotch dog
   }
 }
 

@@ -32,13 +32,12 @@
  */
 
 
+//#define LWIP_PLATFORM_DIAG(message) printf(message)
 
-#define LWIP_PLATFORM_DIAG(message) printf(message)
+//#define LWIP_DEBUG                      1
+//#define MQTT_DEBUG											1
 
-
-#define LWIP_DEBUG                      1
-
-#define LWIP_DBG_TYPES_ON    (LWIP_DBG_ON | LWIP_DBG_TRACE)
+//#define LWIP_DBG_TYPES_ON    (LWIP_DBG_ON | LWIP_DBG_TRACE)
 
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
@@ -54,6 +53,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+
+#include "usbd_cdc_if.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -260,6 +262,7 @@ void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
+	stats_display();
   __disable_irq();
   while (1)
   {
@@ -280,6 +283,7 @@ void assert_failed(uint8_t *file, uint32_t line)
   /* USER CODE BEGIN 6 */
   /* User can add his own implementation to report the file name and line number,
      ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+  printf("Wrong parameters value: file %s on line %d\r\n", file, line);
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */

@@ -32,7 +32,7 @@ typedef struct  {
 typedef struct  {
 	CAN_TxHeaderTypeDef TxHeader; // 5 x uint32_t + 1 = 21
 	CanData_t TxData;							// 4 x uint8_t = 4
-} MsgQTxCan_t;
+} MsgQTxCan_t;									// size = 25 bajty
 
 void CanConfig(void);
 void Can_RX(const MsgQRxCan_t *msg_can);

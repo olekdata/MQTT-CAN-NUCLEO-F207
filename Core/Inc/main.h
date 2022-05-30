@@ -113,7 +113,7 @@ void Error_Handler(void);
 #define LD2_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
-#define HTTPD_USE_CUSTOM_FSDATA 0
+//#define HTTPD_USE_CUSTOM_FSDATA 0
 #define LWIP_HTTPD_DYNAMIC_HEADERS 1
 
 

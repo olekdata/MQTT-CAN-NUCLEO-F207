@@ -12,17 +12,6 @@
 #include "string.h"
 
 
-#define topic_root "DataSoft/"
-#define topic_can  "DataSoft/can"
-#define topic_roleta  "/roleta"
-#define topic_switch1 "/switch1"
-#define topic_switch2 "/switch2"
-#define topic_roleta_pos "/roleta_pos"
-#define topic_sensor1 "/sensor1"
-#define topic_sensor2 "/sensor1"
-#define topic_prad "/prad"
-#define topic_temp "/temp"
-
 #define TYP_WLACZNIK 1 				// zwykły puszkowy włącznik dwukanałowy
 #define TYP_ROLETA_MAN 2			// roleta manualna - jak się trzyma to działą
 #define TYP_ROLETA_AUT 3			// roleta automatyczna - raz nacisnąć do końca zamyka/otwiera
@@ -172,26 +161,24 @@ uint8_t my_mcu_send_can(const MsgQRxCan_t *msg_can){ //oodbiór z mcu (can) i wy
 
 MsgQTxCan_t msg_TxCan;
 
-uint8_t my_mcu_recive_mqtt_topic(const char *topic){ //oodbiór z mqtt i przesłanie do MCU (can)
-	char *pset;
+void  my_mcu_recive_mqtt_topic(const char *topic){ //oodbiór z mqtt i przesłanie do MCU (can)
 	char *pid;
-	char *p;
 	char sid[4];
 
 
 	memset(&msg_TxCan, 0, sizeof(msg_TxCan));
 
-	pset = strstr(topic, "/set");
-
-	if (pset == NULL)
+	if (strstr(topic, "/set") == NULL)
 		return;
 
-	pid = pset -1;
+	pid = topic + strlen(topic_can)+1;
 
-	while ((*pid >= '0' && *pid <= '9'))
-		pid--;
+	u8_t l = 0;
 
-	strncpy(sid, pid+1, pset-pid-1);
+	while ((*(pid+l) >= '0' && *(pid+l) <= '9'))
+		l++;
+
+	strncpy(sid, pid, l);
 
 	msg_TxCan.TxHeader.StdId = 0x100 + atoi(sid);
 
@@ -228,6 +215,31 @@ void my_mcu_recive_mqtt_data(const u8_t *data, u16_t len){ //oodbiór z mqtt i p
 	if (msg_TxCan.TxHeader.StdId == 0)
 		return;
 
+	char d[] = {0,0,0,0,0,0,0,0,0,0};
+	strncpy(d, data, len);
 
+	if (strcmp(d,"ON") == 0) {
+		msg_TxCan.TxData.val = 1;
+		goto next;
+	}
+	if (strcmp(d,"OFF") == 0) {
+		msg_TxCan.TxData.val = 0;
+		goto next;
+	}
+	if (strcmp(d,"STOP") == 0) {
+		msg_TxCan.TxData.val = 255;
+		goto next;
+	}
 
+	msg_TxCan.TxData.val = atoi(d);
+
+	next:
+
+	msg_TxCan.TxHeader.DLC = 3; // długość danych TxData/RxData
+	msg_TxCan.TxHeader.IDE = CAN_ID_STD;
+	msg_TxCan.TxHeader.RTR = CAN_RTR_DATA;
+	my_can_Tx_Queue(&msg_TxCan);
+
+	return;
 }
+
