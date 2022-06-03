@@ -20,5 +20,8 @@
 #define topic_temp "/temp"
 
 
+#define TOPIC_LEN 80
+
+
 
 #endif /* INC_MY_MCU_H_ */

@@ -62,7 +62,7 @@ void CanConfig(void) {
 
 struct sofar_t {
 	uint32_t ExtId;
-	char topic[30];
+	char topic[TOPIC_LEN];
 	uint8_t val_typ;
 } sofar[] = {
 { 0x448041, "wywiew_temp", 0}, 		//0
@@ -93,7 +93,7 @@ uint8_t Sofar_RX(const MsgQRxCan_t *msg_can) {
 		if (sofar[i].ExtId == msg_can->RxHeader.ExtId){
 			int16_t v;
   		char s[LOG_LEN];
-  		char t[50];
+  		char t[TOPIC_LEN];
 			sprintf(s,"??");
 
 			switch (sofar[i].val_typ){
@@ -128,7 +128,7 @@ void Can_RX(const MsgQRxCan_t *msg_can){
 	if (my_mcu_send_can(msg_can))
 		return;
 
-	char t[50];
+	char t[TOPIC_LEN];
 	char s[LOG_LEN];
 
 	sprintf(t,"reszta/ExtID=%lX", msg_can->RxHeader.ExtId);

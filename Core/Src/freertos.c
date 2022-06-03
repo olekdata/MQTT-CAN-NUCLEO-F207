@@ -46,6 +46,7 @@
 /* Private typedef -----------------------------------------------------------*/
 typedef StaticTask_t osStaticThreadDef_t;
 typedef StaticQueue_t osStaticMessageQDef_t;
+typedef StaticSemaphore_t osStaticMutexDef_t;
 typedef StaticSemaphore_t osStaticSemaphoreDef_t;
 /* USER CODE BEGIN PTD */
 
@@ -74,7 +75,7 @@ uint8_t LWIP_Init_flag = 0;
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
-uint32_t defaultTaskBuffer[ 2048 ];
+uint32_t defaultTaskBuffer[ 1024 ];
 osStaticThreadDef_t defaultTaskControlBlock;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
@@ -110,7 +111,7 @@ const osThreadAttr_t TaskLCD_attributes = {
 };
 /* Definitions for TaskCan */
 osThreadId_t TaskCanHandle;
-uint32_t TaskCanBuffer[ 2048 ];
+uint32_t TaskCanBuffer[ 1024 ];
 osStaticThreadDef_t TaskCanControlBlock;
 const osThreadAttr_t TaskCan_attributes = {
   .name = "TaskCan",
@@ -122,7 +123,7 @@ const osThreadAttr_t TaskCan_attributes = {
 };
 /* Definitions for TaskMQTT */
 osThreadId_t TaskMQTTHandle;
-uint32_t TaskMQTTBuffer[ 2048 ];
+uint32_t TaskMQTTBuffer[ 1024 ];
 osStaticThreadDef_t TaskMQTTControlBlock;
 const osThreadAttr_t TaskMQTT_attributes = {
   .name = "TaskMQTT",
@@ -164,6 +165,14 @@ const osMessageQueueAttr_t QueueTxCan_attributes = {
   .cb_size = sizeof(QueueTxCanControlBlock),
   .mq_mem = &QueueTxCanBuffer,
   .mq_size = sizeof(QueueTxCanBuffer)
+};
+/* Definitions for logMutex */
+osMutexId_t logMutexHandle;
+osStaticMutexDef_t logMutexControlBlock;
+const osMutexAttr_t logMutex_attributes = {
+  .name = "logMutex",
+  .cb_mem = &logMutexControlBlock,
+  .cb_size = sizeof(logMutexControlBlock),
 };
 /* Definitions for BinarySemButton */
 osSemaphoreId_t BinarySemButtonHandle;
@@ -251,6 +260,9 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
 
   /* USER CODE END Init */
+  /* Create the mutex(es) */
+  /* creation of logMutex */
+  logMutexHandle = osMutexNew(&logMutex_attributes);
 
   /* USER CODE BEGIN RTOS_MUTEX */
 	/* add mutexes, ... */
@@ -363,14 +375,12 @@ void StartDefaultTask(void *argument)
 
 */
 
-	stats_display();
+//	stats_display();
 
 	for (;;) {
 		HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 		set_stime();
 /*deb*/
-   char slicz[10];
-   sprintf(slicz, "%lu", itime);
    my_mqtt_to_Queue("stm32/licz", slicz);
    my_mqtt_to_Queue("stm32/czas", stime);
 /**/
@@ -469,15 +479,15 @@ void StartTaskCan(void *argument)
 	CanConfig();
 
 	osStatus_t status;
+	MsgQRxCan_t msg_RxCan;
+	MsgQTxCan_t msg_TxCan;
+
 
 	for (;;) {
-		MsgQRxCan_t msg_RxCan;
 		status = osMessageQueueGet(QueueRxCanHandle, &msg_RxCan, NULL, 0);
 		if (status == osOK) {
 			Can_RX(&msg_RxCan);
 		}
-
-		MsgQTxCan_t msg_TxCan;
 
 		status = osMessageQueueGet(QueueTxCanHandle, &msg_TxCan, NULL, 0);
 		if (status == osOK) {
@@ -514,13 +524,13 @@ void StartTaskMQTT(void *argument)
 
 
 	osStatus_t status;
+	mqtt_msg__t mqtt_msg;
 
 
   /* Infinite loop */
   for(;;)
   {
   	if (mqtt_client_is_connected(&mqtt_client)){
-  		mqtt_msg__t mqtt_msg;
 
 			status = osMessageQueueGet(QueueTxMqttHandle, &mqtt_msg, NULL, 0U); // wait for message
 			if (status == osOK)

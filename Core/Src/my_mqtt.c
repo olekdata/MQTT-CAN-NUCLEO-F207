@@ -75,7 +75,7 @@ static void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection
 
     /* Subscribe to a topic named "subtopic" with QoS level 1, call mqtt_sub_request_cb with result */
 
-    char t[50];
+    char t[TOPIC_LEN];
 
     strcpy(t, topic_can);
 
@@ -158,7 +158,7 @@ void my_mqtt_publish(mqtt_client_t *client, const char *t, const char *m)
   err_t err;
   u8_t qos = 0; // 0 - bez potwierdzenia odbioru
   u8_t retain = 0; // No don't retain such crappy payload...
-  char topic[80];
+  char topic[TOPIC_LEN];
   sprintf(topic, "%s/%s", topic_root, t);
 
   err = mqtt_publish(client, topic, m, strlen(m), qos, retain, mqtt_pub_request_cb, 0);

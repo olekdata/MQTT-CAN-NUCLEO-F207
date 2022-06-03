@@ -16,32 +16,34 @@ uint8_t log_item = 0;
 
 
 uint32_t itime = 0;
-char stime[12];
+char slicz[20];
+char stime[20];
 
 
 extern osSemaphoreId_t BinarySemLCDHandle;
+extern osMutexId_t  logMutexHandle;
 
 int ILinia(uint8_t lp) {
 	return (log_item + lp) % LOG_MAX;
 }
 
 void log_put(const char *s) {
+
+	osMutexAcquire(logMutexHandle, osWaitForever);
 	char sl[LOG_LEN];
 	if (s[0] == 0) {
 		sprintf(sl, "+%s\n", stime);
 		strcpy(log_items[log_item], sl);
 		if (itime % 60 == 0){
 			printf(sl);
-			stats_display();
-			//MEM_STATS_DISPLAY();
 		}
-
 	} else {
 		sprintf(sl, "%s-%s\n", stime, s);
 		strcpy(log_items[log_item], sl);
 		log_item = (log_item + 1) % LOG_MAX;
   	printf(sl);
 	}
+	osMutexRelease(logMutexHandle);
 
 //	osSemaphoreRelease(myBinarySemLCDHandle);
 //  	printf(sl);
@@ -58,6 +60,8 @@ void set_stime(){
 	uint8_t s = itime % 60;
 //		sprintf(stime, "%d/%d:%02d:%02d", resets, h, m, s);
 	sprintf(stime, "%d:%02d:%02d", h, m, s);
+  sprintf(slicz, "%lu", itime);
+
 //	sprintf(stime, "%lu", itime);
 
 }

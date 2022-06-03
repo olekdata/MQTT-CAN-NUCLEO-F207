@@ -117,7 +117,7 @@ int __io_putchar(int ch)
 int _write(int file,char *ptr, int len)
 {
 	int DataIdx;
-  CDC_Transmit_FS(ptr,  len);
+//  CDC_Transmit_FS(ptr,  len);
 	for(DataIdx= 0; DataIdx< len; DataIdx++)
 	{
    //__io_putchar(*ptr++);
@@ -231,6 +231,18 @@ void SystemClock_Config(void)
 
 /* USER CODE BEGIN 4 */
 
+
+void my_configASSERT(){
+	printf("my_configASSERT\n");
+	uint8_t i = 1;
+	while (i)
+	{
+		i = 1;
+
+	}
+}
+
+
 /* USER CODE END 4 */
 
 /**
@@ -262,7 +274,9 @@ void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
-	stats_display();
+	printf("Error_Hendle\n");
+
+//stats_display();
   __disable_irq();
   while (1)
   {

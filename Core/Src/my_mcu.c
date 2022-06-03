@@ -8,6 +8,7 @@
 #include "my_mcu.h"
 #include "my_can.h"
 #include "my_mqtt.h"
+#include "my_log.h"
 #include "stdio.h"
 #include "string.h"
 
@@ -68,8 +69,8 @@
 uint8_t my_mcu_send_can(const MsgQRxCan_t *msg_can){ //oodbiór z mcu (can) i wysyłka MQTT
 
 	char b[10];
-	char t[50] = "can/";
-	char s[50];
+	char t[TOPIC_LEN] = "can/";
+	char s[LOG_LEN];
 
 	 if (msg_can->RxHeader.ExtId)
 	   return 0;
@@ -163,7 +164,7 @@ MsgQTxCan_t msg_TxCan;
 
 void  my_mcu_recive_mqtt_topic(const char *topic){ //oodbiór z mqtt i przesłanie do MCU (can)
 	char *pid;
-	char sid[4];
+	char sid[10];
 
 
 	memset(&msg_TxCan, 0, sizeof(msg_TxCan));
