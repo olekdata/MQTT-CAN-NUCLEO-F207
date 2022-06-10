@@ -25,9 +25,11 @@ static void mqtt_sub_request_cb(void *arg, err_t result)
   /* Just print the result code here for simplicity,
      normal behaviour would be to take some action if subscribe fails like
      notifying user, retry subscribe or disconnect from server */
-  char s[LOG_LEN];
-  sprintf(s, "Sub req %d", result);
-  log_put(s);
+	if (result != 0) {
+		char s[LOG_LEN];
+		sprintf(s, "Sub req %d", result);
+		log_put(s);
+	}
 }
 
 static void mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t tot_len)
@@ -161,12 +163,18 @@ void my_mqtt_publish(mqtt_client_t *client, const char *t, const char *m)
   char topic[TOPIC_LEN];
   sprintf(topic, "%s/%s", topic_root, t);
 
+//  if (mqtt_output_check_space(client->output, 20) == 0) {
+
+ // }
+
   err = mqtt_publish(client, topic, m, strlen(m), qos, retain, mqtt_pub_request_cb, 0);
   if(err != ERR_OK) {
 	  char s[LOG_LEN];
     sprintf(s, "Pub. err: %d\n", err);
     log_put(s);
-    Error_Handler();
+    log_put(t);
+    log_put(m);
+//    Error_Handler();
 //    osDelay(1000);
     //HAL_NVIC_SystemReset();
     //while (1) {}; // reset przez wotch dog

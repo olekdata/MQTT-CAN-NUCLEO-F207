@@ -117,7 +117,7 @@ int __io_putchar(int ch)
 int _write(int file,char *ptr, int len)
 {
 	int DataIdx;
-//  CDC_Transmit_FS(ptr,  len);
+  CDC_Transmit_FS(ptr,  len);
 	for(DataIdx= 0; DataIdx< len; DataIdx++)
 	{
    //__io_putchar(*ptr++);
@@ -240,6 +240,29 @@ void my_configASSERT(){
 		i = 1;
 
 	}
+}
+
+void vAssertCalled( unsigned long ulLine, const char * const pcFileName )
+{
+static portBASE_TYPE xPrinted = pdFALSE;
+volatile uint32_t ulSetToNonZeroInDebuggerToContinue = 0;
+
+    /* Parameters are not used. */
+    ( void ) ulLine;
+    ( void ) pcFileName;
+
+    printf("vconfigASSERT file:%s, line:%d\n",pcFileName,ulLine);
+
+ //   taskENTER_CRITICAL();
+    {
+        /* You can step out of this function to debug the assertion by using
+        the debugger to set ulSetToNonZeroInDebuggerToContinue to a non-zero
+        value. */
+        while( ulSetToNonZeroInDebuggerToContinue == 0 )
+        {
+        }
+    }
+//    taskEXIT_CRITICAL();
 }
 
 

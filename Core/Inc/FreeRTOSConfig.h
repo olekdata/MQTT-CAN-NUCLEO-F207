@@ -140,7 +140,8 @@ See http://www.FreeRTOS.org/RTOS-Cortex-M3-M4.html. */
 header file. */
 /* USER CODE BEGIN 1 */
 //#define configASSERT( x ) if ((x) == 0) {taskDISABLE_INTERRUPTS(); for( ;; );}
-#define configASSERT( x ) if ((x) == 0) {taskDISABLE_INTERRUPTS(); my_configASSERT();}
+//#define configASSERT( x ) if ((x) == 0) {taskDISABLE_INTERRUPTS(); my_configASSERT();}
+#define configASSERT( x ) if( ( x ) == 0 ) vAssertCalled( __LINE__, __FILE__ )
 
 /* USER CODE END 1 */
 

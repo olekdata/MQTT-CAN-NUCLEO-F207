@@ -8,7 +8,7 @@
 #ifndef INC_MY_MQTT_H_
 #define INC_MY_MQTT_H_
 
-#define MQTT_OUTPUT_RINGBUF_SIZE 1024 // systemowa LWIP
+#define MQTT_OUTPUT_RINGBUF_SIZE 2048 // systemowa LWIP
 
 #include "mqtt.h"
 
