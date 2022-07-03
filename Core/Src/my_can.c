@@ -98,9 +98,16 @@ uint8_t Sofar_RX(const MsgQRxCan_t *msg_can) {
 
 			switch (sofar[i].val_typ){
 			  case 0:
-				   v = msg_can->RxData.to-msg_can->RxData.fun;
-				   sprintf(s,"%d,%d",v/10,v%10);
-				   break;
+			  	 if ((msg_can->RxData.to >= 0) && (msg_can->RxData.fun > 0)) {
+//			  		 char s_[LOG_LEN];
+				     v = 250+msg_can->RxData.to;
+//				     sprintf(s_,"?%d,%d >> %d/%d",v/10,v%10,msg_can->RxData.to,msg_can->RxData.fun);
+//				     log_put(s_);
+			  	 } else {
+				     v = msg_can->RxData.to-msg_can->RxData.fun;
+			  	 }
+			     sprintf(s,"%d,%d",v/10,v%10);
+			     break;
 			  case 1:
 				   v = msg_can->RxData.to;
 				   sprintf(s,"%d",v);
@@ -127,6 +134,8 @@ void Can_RX(const MsgQRxCan_t *msg_can){
 
 	if (my_mcu_send_can(msg_can))
 		return;
+
+//	return;
 
 	char t[TOPIC_LEN];
 	char s[LOG_LEN];

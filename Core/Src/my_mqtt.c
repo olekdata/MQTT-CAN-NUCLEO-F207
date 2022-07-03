@@ -14,6 +14,8 @@
 
 
 extern osMessageQueueId_t QueueTxMqttHandle;
+extern osMutexId_t putMqttMutexHandle;
+
 
 
 //mqtt_msg__t mqtt_msg;
@@ -166,14 +168,16 @@ void my_mqtt_publish(mqtt_client_t *client, const char *t, const char *m)
 //  if (mqtt_output_check_space(client->output, 20) == 0) {
 
  // }
+  uint16_t tl = strlen(topic);
+  uint16_t ml = strlen(m);
 
-  err = mqtt_publish(client, topic, m, strlen(m), qos, retain, mqtt_pub_request_cb, 0);
+
+  err = mqtt_publish(client, topic, m, ml, qos, retain, mqtt_pub_request_cb, 0);
   if(err != ERR_OK) {
 	  char s[LOG_LEN];
-    sprintf(s, "Pub. err: %d\n", err);
-    log_put(s);
-    log_put(t);
-    log_put(m);
+    sprintf(s, "Pub. err: %d (%d+%d)", err, tl, ml); 	log_put(s);
+    sprintf(s, "Title>%s<", t); 			log_put(s);
+//    sprintf(s, "Msg>%s<", m);   			log_put(s);
 //    Error_Handler();
 //    osDelay(1000);
     //HAL_NVIC_SystemReset();
@@ -184,10 +188,10 @@ void my_mqtt_publish(mqtt_client_t *client, const char *t, const char *m)
 
 void my_mqtt_to_Queue(const char *t, const char *m){
 
+	osMutexAcquire(putMqttMutexHandle, osWaitForever);
+
 	osStatus_t status;
-
 	mqtt_msg__t mqtt_msg;
-
 
 	strcpy(mqtt_msg.topic, t);
 	strcpy(mqtt_msg.value, m);
@@ -195,8 +199,9 @@ void my_mqtt_to_Queue(const char *t, const char *m){
 	status = osMessageQueuePut(QueueTxMqttHandle, &mqtt_msg, 0U, 0U);
 	if (status != osOK) {
 		 char s[LOG_LEN];
-		 sprintf(s, "QPut mq er %d\n", status);
+		 sprintf(s, "QPut mq er %d", status);
 		 log_put(s);
 	}
+	osMutexRelease(putMqttMutexHandle);
 }
 

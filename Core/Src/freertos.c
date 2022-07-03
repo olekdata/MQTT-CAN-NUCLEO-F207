@@ -131,7 +131,7 @@ const osThreadAttr_t TaskMQTT_attributes = {
   .cb_size = sizeof(TaskMQTTControlBlock),
   .stack_mem = &TaskMQTTBuffer[0],
   .stack_size = sizeof(TaskMQTTBuffer),
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t) osPriorityNormal1,
 };
 /* Definitions for QueueRxCan */
 osMessageQueueId_t QueueRxCanHandle;
@@ -173,6 +173,14 @@ const osMutexAttr_t logMutex_attributes = {
   .name = "logMutex",
   .cb_mem = &logMutexControlBlock,
   .cb_size = sizeof(logMutexControlBlock),
+};
+/* Definitions for putMqttMutex */
+osMutexId_t putMqttMutexHandle;
+osStaticMutexDef_t putMqttMutexControlBlock;
+const osMutexAttr_t putMqttMutex_attributes = {
+  .name = "putMqttMutex",
+  .cb_mem = &putMqttMutexControlBlock,
+  .cb_size = sizeof(putMqttMutexControlBlock),
 };
 /* Definitions for BinarySemButton */
 osSemaphoreId_t BinarySemButtonHandle;
@@ -264,6 +272,9 @@ void MX_FREERTOS_Init(void) {
   /* creation of logMutex */
   logMutexHandle = osMutexNew(&logMutex_attributes);
 
+  /* creation of putMqttMutex */
+  putMqttMutexHandle = osMutexNew(&putMqttMutex_attributes);
+
   /* USER CODE BEGIN RTOS_MUTEX */
 	/* add mutexes, ... */
   /* USER CODE END RTOS_MUTEX */
@@ -339,43 +350,29 @@ void StartDefaultTask(void *argument)
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN StartDefaultTask */
 	/* Infinite loop */
-  LWIP_Init_flag = 1;
-	//osDelay(2000);
-	log_put("Init");
-
-
-/*deb*/
-	extern struct netif gnetif;
-	u32_t local_IP = gnetif.ip_addr.addr;
-	char s[LOG_LEN];
-	sprintf(s, "IP %lu.%lu.%lu.%lu\n\r", (local_IP & 0xff), ((local_IP >> 8) & 0xff),
-			((local_IP >> 16) & 0xff), (local_IP >> 24));
-	log_put(s);
-/**/
-
-//deb
 
 	httpd_init();
 	myCGIinit();
 	mySSIinit();
 
+	osDelay(1000);
+  LWIP_Init_flag = 1;
 
-/*
-  EE_Init();
 
-  if(EE_ReadVariable(0, &resets) != HAL_OK) {
-      Error_Handler();
-  };
+/*deb*/
+	{
+	extern struct netif gnetif;
+	u32_t local_IP = gnetif.ip_addr.addr;
+	char s[LOG_LEN];
+	sprintf(s, "IP %lu.%lu.%lu.%lu", (local_IP & 0xff), ((local_IP >> 8) & 0xff),
+			((local_IP >> 16) & 0xff), (local_IP >> 24));
+	log_put(s);
+	}
 
-  resets++;
-
-  if(EE_WriteVariable(0, &resets) != HAL_OK) {
-        Error_Handler();
-   };
-
-*/
+/**/
 
 //	stats_display();
+
 
 	for (;;) {
 		HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
@@ -407,9 +404,9 @@ void StartTaskButton(void *argument)
 		osSemaphoreAcquire(BinarySemButtonHandle, osWaitForever);
 		LD1ON = !LD1ON;
 		HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, LD1ON);
-		char s[LOG_LEN];
-		sprintf(s, "Led2 %d", LD1ON);
-		log_put(s);
+//		char s[LOG_LEN];
+//		sprintf(s, "Led2 %d", LD1ON);
+//		log_put(s);
 
 		osDelay(1);
 
@@ -434,6 +431,10 @@ void StartTaskLCD(void *argument)
 //deb
 	ssd1306_Init();
 
+	char _s[LOG_LEN];
+	uint8_t l;
+
+
 	for (;;) {
 
 //		osSemaphoreAcquire(myBinarySemLCDHandle, osWaitForever);
@@ -441,11 +442,10 @@ void StartTaskLCD(void *argument)
 /*deb*/
 		for (uint8_t i = 0; i < LOG_MAX; i++) {
 			ssd1306_SetCursor(0, 9 * i);
-			char _s[LOG_LEN];
 			strcpy(_s, log_items[ILinia(i)]);
-			uint8_t l = strlen(_s);
-			memset(&_s[l], ' ', LOG_LEN - l);
-			_s[LOG_LEN] = '\0';
+			l = strlen(_s);
+			memset(&_s[l-1], ' ', LOG_LEN - l);
+			_s[LOG_LEN-1] = '\0';
 			ssd1306_WriteString(_s, Font_6x8, White);
 		}
 		ssd1306_UpdateScreen();
@@ -479,21 +479,22 @@ void StartTaskCan(void *argument)
 	CanConfig();
 
 	osStatus_t status;
-	MsgQRxCan_t msg_RxCan;
-	MsgQTxCan_t msg_TxCan;
-
 
 	for (;;) {
-		status = osMessageQueueGet(QueueRxCanHandle, &msg_RxCan, NULL, 0);
-		if (status == osOK) {
-			Can_RX(&msg_RxCan);
+		{
+			MsgQRxCan_t msg_RxCan;
+			status = osMessageQueueGet(QueueRxCanHandle, &msg_RxCan, NULL, 0);
+			if (status == osOK) {
+				Can_RX(&msg_RxCan);
+			}
 		}
-
-		status = osMessageQueueGet(QueueTxCanHandle, &msg_TxCan, NULL, 0);
-		if (status == osOK) {
-			my_can_Tx(&msg_TxCan);
+		{
+			MsgQTxCan_t msg_TxCan;
+			status = osMessageQueueGet(QueueTxCanHandle, &msg_TxCan, NULL, 0);
+			if (status == osOK) {
+				my_can_Tx(&msg_TxCan);
+		  }
 		}
-
 		osDelay(1);
 	}
   /* USER CODE END StartTaskCan */
@@ -511,9 +512,6 @@ void StartTaskMQTT(void *argument)
   /* USER CODE BEGIN StartTaskMQTT */
 
 
-
-//	extern struct netif gnetif;
-
 	while(1) {
 		if (LWIP_Init_flag)
 		  break;
@@ -522,21 +520,18 @@ void StartTaskMQTT(void *argument)
 
 	my_mqtt_do_connect(&mqtt_client);
 
-
-	osStatus_t status;
-	mqtt_msg__t mqtt_msg;
-
-
   /* Infinite loop */
   for(;;)
   {
   	if (mqtt_client_is_connected(&mqtt_client)){
+  		osStatus_t status;
+  		mqtt_msg__t mqtt_msg;
 
 			status = osMessageQueueGet(QueueTxMqttHandle, &mqtt_msg, NULL, 0U); // wait for message
 			if (status == osOK)
 				my_mqtt_publish(&mqtt_client, mqtt_msg.topic, mqtt_msg.value);
 		} else {
-			log_put("mqtt not cone.");
+//			log_put("mqtt not cone.");
  // 		my_mqtt_do_connect(&mqtt_client);
 		}
     osDelay(1);
